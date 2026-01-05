@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -30,96 +30,138 @@ import {
   Bell,
   Plus,
 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
 
-const mockProfile = {
-  name: "John Doe",
-  email: "john.doe@example.com",
-  phone: "+1 (555) 123-4567",
-  location: "San Francisco, CA",
-  bio: "Experienced software developer with 5+ years in React and TypeScript. Passionate about building scalable web applications.",
-  skills: ["React", "TypeScript", "Node.js", "Python", "AWS", "Docker"],
-  experience: "5 years",
-  education: "B.S. Computer Science, Stanford University",
-  resume: "john_doe_resume.pdf",
+// =============================
+// API Endpoints
+// =============================
+const API_USER_ME = "/users/me";
+const API_USER_UPDATE = "/users/me";
+const API_MY_APPLICATIONS = "/applications/me";
+
+// =============================
+// Backend Types
+// =============================
+type BackendUser = {
+  userId: number;
+  email: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  mobile?: string | null;
+  address?: string | null;
+  bio?: string | null;
+  skills?: string[] | null;
+  schools?: string | null;
+  dob?: string | null;
+  olPassCount?: number | null;
+  profilePic?: string | null;
 };
 
-const mockApplications = [
-  {
-    id: "1",
-    jobTitle: "Senior Frontend Developer",
-    company: "TechCorp Inc.",
-    companyLogo: "T",
-    status: "under_review",
-    appliedDate: "2024-01-15",
-    location: "San Francisco, CA",
-  },
-  {
-    id: "2",
-    jobTitle: "Full Stack Engineer",
-    company: "InnovateTech",
-    companyLogo: "I",
-    status: "interview_scheduled",
-    appliedDate: "2024-01-10",
-    location: "Remote",
-    interviewDate: "2024-01-25",
-  },
-  {
-    id: "3",
-    jobTitle: "React Developer",
-    company: "StartupXYZ",
-    companyLogo: "S",
-    status: "rejected",
-    appliedDate: "2024-01-05",
-    location: "New York, NY",
-  },
-  {
-    id: "4",
-    jobTitle: "Software Engineer",
-    company: "MegaSoft",
-    companyLogo: "M",
-    status: "offered",
-    appliedDate: "2024-01-01",
-    location: "Seattle, WA",
-  },
-];
+type BackendCompany = {
+  companyId: number;
+  companyName: string;
+  email: string;
+  profilePic?: string | null;
+};
 
-const mockSavedJobs = [
-  {
-    id: "1",
-    title: "Product Manager",
-    company: "Google",
-    location: "Mountain View, CA",
-    salary: "$150k - $200k",
-  },
-  {
-    id: "2",
-    title: "UX Designer",
-    company: "Apple",
-    location: "Cupertino, CA",
-    salary: "$120k - $160k",
-  },
-  {
-    id: "3",
-    title: "Data Scientist",
-    company: "Meta",
-    location: "Remote",
-    salary: "$140k - $180k",
-  },
-];
+type BackendJob = {
+  id: string;
+  jobTitle: string;
+  location?: string | null;
+  company?: BackendCompany | null;
+};
 
-const mockSavedCompanies = [
-  { id: "1", name: "TechCorp Inc.", industry: "Technology", jobs: 24 },
-  { id: "2", name: "InnovateTech", industry: "Software", jobs: 12 },
-  { id: "3", name: "StartupXYZ", industry: "Fintech", jobs: 8 },
-];
+type BackendApplication = {
+  id: string;
+  status: string;
+  createdAt: string;
+  job?: BackendJob | null;
+};
+
+// =============================
+// UI Profile Model
+// =============================
+type UiProfile = {
+  name: string;
+  email: string;
+  phone: string;
+  location: string;
+  bio: string;
+  skills: string[];
+  schools: string;
+  olPassCount: string;
+};
+
+// =============================
+// Conversion Functions
+// =============================
+function toUiProfile(u: BackendUser): UiProfile {
+  const name = `${u.firstName ?? ""} ${u.lastName ?? ""}`.trim() || "User";
+
+  return {
+    name,
+    email: u.email ?? "",
+    phone: u.mobile ?? "",
+    location: u.address ?? "",
+    bio: u.bio ?? "",
+    skills: Array.isArray(u.skills) ? u.skills : [],
+    schools: u.schools ?? "",
+    olPassCount: u.olPassCount != null ? String(u.olPassCount) : "",
+  };
+}
+
+function toBackendUpdatePayload(p: UiProfile) {
+  const [firstName, ...rest] = (p.name || "").trim().split(" ");
+  const lastName = rest.join(" ").trim();
+
+  const olPassNumber =
+    p.olPassCount && String(p.olPassCount).trim() !== ""
+      ? Number(p.olPassCount)
+      : null;
+
+  return {
+    firstName: firstName || null,
+    lastName: lastName || null,
+    mobile: p.phone || null,
+    address: p.location || null,
+    bio: p.bio || null,
+    skills: Array.isArray(p.skills) ? p.skills : [],
+    schools: p.schools || null,
+    olPassCount: Number.isFinite(olPassNumber as any) ? olPassNumber : null,
+  };
+}
+
+// =============================
+// Status Utilities
+// =============================
+function normalizeStatus(status: string) {
+  const s = (status || "").toUpperCase();
+  if (s === "APPLIED") return "under_review";
+  if (s === "UNDER_REVIEW") return "under_review";
+  if (s === "INTERVIEW_SCHEDULED" || s === "INTERVIEW")
+    return "interview_scheduled";
+  if (s === "OFFERED") return "offered";
+  if (s === "REJECTED") return "rejected";
+  if (s === "ACCEPTED") return "accepted";
+  return "under_review";
+}
 
 const getStatusBadge = (status: string) => {
   const statusConfig: Record<
     string,
-    { label: string; variant: "default" | "secondary" | "destructive" | "outline"; icon: typeof Clock }
+    {
+      label: string;
+      variant: "default" | "secondary" | "destructive" | "outline";
+      icon: typeof Clock;
+    }
   > = {
     under_review: { label: "Under Review", variant: "secondary", icon: Clock },
-    interview_scheduled: { label: "Interview Scheduled", variant: "default", icon: Calendar },
+    interview_scheduled: {
+      label: "Interview Scheduled",
+      variant: "default",
+      icon: Calendar,
+    },
     offered: { label: "Offered", variant: "default", icon: CheckCircle },
     rejected: { label: "Rejected", variant: "destructive", icon: XCircle },
     accepted: { label: "Accepted", variant: "default", icon: CheckCircle },
@@ -136,38 +178,130 @@ const getStatusBadge = (status: string) => {
   );
 };
 
+function formatDate(iso?: string) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleDateString();
+}
+
+// =============================
+// Main Component
+// =============================
 export default function UserDashboard() {
+  const queryClient = useQueryClient();
+
   const [isEditing, setIsEditing] = useState(false);
-  const [profile, setProfile] = useState(mockProfile);
-  const [editedProfile, setEditedProfile] = useState(mockProfile);
   const [newSkill, setNewSkill] = useState("");
 
+  // Fetch user
+  const {
+    data: user,
+    isLoading: userLoading,
+    isError: userError,
+  } = useQuery({
+    queryKey: ["user-me"],
+    queryFn: async () => {
+      const res = await api.get(API_USER_ME);
+      return res.data as BackendUser;
+    },
+  });
+
+  // Fetch applications
+  const {
+    data: applications,
+    isLoading: appsLoading,
+    isError: appsError,
+  } = useQuery({
+    queryKey: ["my-applications"],
+    queryFn: async () => {
+      const res = await api.get(API_MY_APPLICATIONS);
+      return (res.data ?? []) as BackendApplication[];
+    },
+  });
+
+  const baseProfile = useMemo(() => (user ? toUiProfile(user) : null), [user]);
+
+  const [profile, setProfile] = useState<UiProfile | null>(null);
+  const [editedProfile, setEditedProfile] = useState<UiProfile | null>(null);
+
+  useEffect(() => {
+    if (baseProfile) {
+      setProfile(baseProfile);
+      setEditedProfile(baseProfile);
+    }
+  }, [baseProfile]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (payload: ReturnType<typeof toBackendUpdatePayload>) => {
+      console.log("Sending update payload:", payload);
+      const res = await api.patch(API_USER_UPDATE, payload);
+      console.log("Update response:", res.data);
+      return res.data as BackendUser;
+    },
+    onSuccess: (updated) => {
+      queryClient.setQueryData(["user-me"], updated);
+      const ui = toUiProfile(updated);
+      setProfile(ui);
+      setEditedProfile(ui);
+      setIsEditing(false);
+    },
+    onError: (error) => {
+      console.error("Update error:", error);
+    },
+  });
+
   const handleSave = () => {
-    setProfile(editedProfile);
-    setIsEditing(false);
+    if (!editedProfile) return;
+    const payload = toBackendUpdatePayload(editedProfile);
+    console.log("Skills being saved:", payload.skills);
+    updateMutation.mutate(payload);
   };
 
   const handleCancel = () => {
+    if (!profile) return;
     setEditedProfile(profile);
     setIsEditing(false);
   };
 
   const addSkill = () => {
-    if (newSkill.trim() && !editedProfile.skills.includes(newSkill.trim())) {
-      setEditedProfile({
-        ...editedProfile,
-        skills: [...editedProfile.skills, newSkill.trim()],
-      });
-      setNewSkill("");
-    }
+    if (!editedProfile) return;
+    const s = newSkill.trim();
+    if (!s) return;
+    if (editedProfile.skills.includes(s)) return;
+
+    setEditedProfile({
+      ...editedProfile,
+      skills: [...editedProfile.skills, s],
+    });
+    setNewSkill("");
   };
 
   const removeSkill = (skill: string) => {
+    if (!editedProfile) return;
     setEditedProfile({
       ...editedProfile,
       skills: editedProfile.skills.filter((s) => s !== skill),
     });
   };
+
+  const safeProfile: UiProfile = profile ?? {
+    name: "",
+    email: "",
+    phone: "",
+    location: "",
+    bio: "",
+    skills: [],
+    schools: "",
+    olPassCount: "",
+  };
+
+  const safeEdited: UiProfile = editedProfile ?? safeProfile;
+
+  const apps = applications ?? [];
+  const interviewsCount = apps.filter(
+    (a) => normalizeStatus(a.status) === "interview_scheduled"
+  ).length;
 
   return (
     <MainLayout>
@@ -179,6 +313,15 @@ export default function UserDashboard() {
             <p className="text-muted-foreground mt-1">
               Manage your profile, applications, and saved items
             </p>
+
+            {(userLoading || appsLoading) && (
+              <p className="text-xs text-muted-foreground mt-2">Loading...</p>
+            )}
+            {(userError || appsError) && (
+              <p className="text-xs text-destructive mt-2">
+                Failed to load dashboard data. Check your API routes.
+              </p>
+            )}
           </div>
           <div className="flex gap-3">
             <Button variant="outline" size="icon">
@@ -199,12 +342,13 @@ export default function UserDashboard() {
                   <Briefcase className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{mockApplications.length}</p>
+                  <p className="text-2xl font-bold">{apps.length}</p>
                   <p className="text-sm text-muted-foreground">Applications</p>
                 </div>
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -212,14 +356,13 @@ export default function UserDashboard() {
                   <Calendar className="h-6 w-6 text-accent" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    {mockApplications.filter((a) => a.status === "interview_scheduled").length}
-                  </p>
+                  <p className="text-2xl font-bold">{interviewsCount}</p>
                   <p className="text-sm text-muted-foreground">Interviews</p>
                 </div>
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -227,12 +370,13 @@ export default function UserDashboard() {
                   <BookmarkCheck className="h-6 w-6 text-warning" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{mockSavedJobs.length}</p>
+                  <p className="text-2xl font-bold">0</p>
                   <p className="text-sm text-muted-foreground">Saved Jobs</p>
                 </div>
               </div>
             </CardContent>
           </Card>
+
           <Card>
             <CardContent className="pt-6">
               <div className="flex items-center gap-4">
@@ -240,22 +384,26 @@ export default function UserDashboard() {
                   <Building2 className="h-6 w-6 text-info" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{mockSavedCompanies.length}</p>
-                  <p className="text-sm text-muted-foreground">Followed Companies</p>
+                  <p className="text-2xl font-bold">0</p>
+                  <p className="text-sm text-muted-foreground">
+                    Followed Companies
+                  </p>
                 </div>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Main Content Tabs */}
         <Tabs defaultValue="profile" className="space-y-6">
           <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-flex">
             <TabsTrigger value="profile" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               <span className="hidden sm:inline">Profile</span>
             </TabsTrigger>
-            <TabsTrigger value="applications" className="flex items-center gap-2">
+            <TabsTrigger
+              value="applications"
+              className="flex items-center gap-2"
+            >
               <FileText className="h-4 w-4" />
               <span className="hidden sm:inline">Applications</span>
             </TabsTrigger>
@@ -280,27 +428,36 @@ export default function UserDashboard() {
                       <X className="h-4 w-4 mr-1" />
                       Cancel
                     </Button>
-                    <Button size="sm" onClick={handleSave}>
+                    <Button
+                      size="sm"
+                      onClick={handleSave}
+                      disabled={updateMutation.isPending}
+                    >
                       <Save className="h-4 w-4 mr-1" />
-                      Save
+                      {updateMutation.isPending ? "Saving..." : "Save"}
                     </Button>
                   </div>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setIsEditing(true)}
+                  >
                     <Edit3 className="h-4 w-4 mr-1" />
                     Edit Profile
                   </Button>
                 )}
               </CardHeader>
+
               <CardContent className="space-y-6">
                 <div className="flex flex-col md:flex-row gap-6">
                   {/* Avatar */}
                   <div className="flex flex-col items-center gap-3">
                     <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
-                      {profile.name.charAt(0)}
+                      {(safeProfile.name || "U").charAt(0).toUpperCase()}
                     </div>
                     {isEditing && (
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" disabled>
                         Change Photo
                       </Button>
                     )}
@@ -314,64 +471,76 @@ export default function UserDashboard() {
                       </label>
                       {isEditing ? (
                         <Input
-                          value={editedProfile.name}
+                          value={safeEdited.name}
                           onChange={(e) =>
-                            setEditedProfile({ ...editedProfile, name: e.target.value })
+                            setEditedProfile({
+                              ...safeEdited,
+                              name: e.target.value,
+                            })
                           }
                         />
                       ) : (
                         <p className="text-foreground flex items-center gap-2 mt-1">
                           <User className="h-4 w-4 text-muted-foreground" />
-                          {profile.name}
+                          {safeProfile.name || "-"}
                         </p>
                       )}
                     </div>
+
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Email</label>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Email
+                      </label>
                       {isEditing ? (
-                        <Input
-                          type="email"
-                          value={editedProfile.email}
-                          onChange={(e) =>
-                            setEditedProfile({ ...editedProfile, email: e.target.value })
-                          }
-                        />
+                        <Input value={safeEdited.email} disabled />
                       ) : (
                         <p className="text-foreground flex items-center gap-2 mt-1">
                           <Mail className="h-4 w-4 text-muted-foreground" />
-                          {profile.email}
+                          {safeProfile.email || "-"}
                         </p>
                       )}
                     </div>
+
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Phone</label>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Phone
+                      </label>
                       {isEditing ? (
                         <Input
-                          value={editedProfile.phone}
+                          value={safeEdited.phone}
                           onChange={(e) =>
-                            setEditedProfile({ ...editedProfile, phone: e.target.value })
+                            setEditedProfile({
+                              ...safeEdited,
+                              phone: e.target.value,
+                            })
                           }
                         />
                       ) : (
                         <p className="text-foreground flex items-center gap-2 mt-1">
                           <Phone className="h-4 w-4 text-muted-foreground" />
-                          {profile.phone}
+                          {safeProfile.phone || "-"}
                         </p>
                       )}
                     </div>
+
                     <div>
-                      <label className="text-sm font-medium text-muted-foreground">Location</label>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Location
+                      </label>
                       {isEditing ? (
                         <Input
-                          value={editedProfile.location}
+                          value={safeEdited.location}
                           onChange={(e) =>
-                            setEditedProfile({ ...editedProfile, location: e.target.value })
+                            setEditedProfile({
+                              ...safeEdited,
+                              location: e.target.value,
+                            })
                           }
                         />
                       ) : (
                         <p className="text-foreground flex items-center gap-2 mt-1">
                           <MapPin className="h-4 w-4 text-muted-foreground" />
-                          {profile.location}
+                          {safeProfile.location || "-"}
                         </p>
                       )}
                     </div>
@@ -380,17 +549,22 @@ export default function UserDashboard() {
 
                 {/* Bio */}
                 <div>
-                  <label className="text-sm font-medium text-muted-foreground">Bio</label>
+                  <label className="text-sm font-medium text-muted-foreground">
+                    Bio
+                  </label>
                   {isEditing ? (
                     <Textarea
-                      value={editedProfile.bio}
+                      value={safeEdited.bio}
                       onChange={(e) =>
-                        setEditedProfile({ ...editedProfile, bio: e.target.value })
+                        setEditedProfile({ ...safeEdited, bio: e.target.value })
                       }
                       rows={3}
+                      placeholder="Tell us about yourself..."
                     />
                   ) : (
-                    <p className="text-foreground mt-1">{profile.bio}</p>
+                    <p className="text-foreground mt-1">
+                      {safeProfile.bio || "-"}
+                    </p>
                   )}
                 </div>
 
@@ -400,23 +574,27 @@ export default function UserDashboard() {
                     Skills
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {(isEditing ? editedProfile : profile).skills.map((skill) => (
-                      <Badge
-                        key={skill}
-                        variant="secondary"
-                        className={isEditing ? "pr-1" : ""}
-                      >
-                        {skill}
-                        {isEditing && (
-                          <button
-                            onClick={() => removeSkill(skill)}
-                            className="ml-1 hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        )}
-                      </Badge>
-                    ))}
+                    {(isEditing ? safeEdited : safeProfile).skills.map(
+                      (skill) => (
+                        <Badge
+                          key={skill}
+                          variant="secondary"
+                          className={isEditing ? "pr-1" : ""}
+                        >
+                          {skill}
+                          {isEditing && (
+                            <button
+                              type="button"
+                              onClick={() => removeSkill(skill)}
+                              className="ml-1 hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </Badge>
+                      )
+                    )}
+
                     {isEditing && (
                       <div className="flex gap-1">
                         <Input
@@ -424,64 +602,81 @@ export default function UserDashboard() {
                           onChange={(e) => setNewSkill(e.target.value)}
                           placeholder="Add skill"
                           className="w-32 h-6 text-sm"
-                          onKeyDown={(e) => e.key === "Enter" && addSkill()}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addSkill();
+                            }
+                          }}
                         />
-                        <Button size="sm" variant="ghost" onClick={addSkill} className="h-6 w-6 p-0">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={addSkill}
+                          className="h-6 w-6 p-0"
+                        >
                           <Plus className="h-4 w-4" />
                         </Button>
                       </div>
                     )}
-                  </div>
-                </div>
 
-                {/* Experience & Education */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="text-sm font-medium text-muted-foreground">
-                      Experience
-                    </label>
-                    {isEditing ? (
-                      <Input
-                        value={editedProfile.experience}
-                        onChange={(e) =>
-                          setEditedProfile({ ...editedProfile, experience: e.target.value })
-                        }
-                      />
-                    ) : (
-                      <p className="text-foreground flex items-center gap-2 mt-1">
-                        <Briefcase className="h-4 w-4 text-muted-foreground" />
-                        {profile.experience}
+                    {!isEditing && safeProfile.skills.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No skills added yet.
                       </p>
                     )}
                   </div>
+                </div>
+
+                {/* Education & O/L Pass Count */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-muted-foreground">Education</label>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Schools / Education
+                    </label>
                     {isEditing ? (
                       <Input
-                        value={editedProfile.education}
+                        value={safeEdited.schools}
                         onChange={(e) =>
-                          setEditedProfile({ ...editedProfile, education: e.target.value })
+                          setEditedProfile({
+                            ...safeEdited,
+                            schools: e.target.value,
+                          })
                         }
+                        placeholder="Your school or institute"
                       />
                     ) : (
                       <p className="text-foreground flex items-center gap-2 mt-1">
                         <GraduationCap className="h-4 w-4 text-muted-foreground" />
-                        {profile.education}
+                        {safeProfile.schools || "-"}
                       </p>
                     )}
                   </div>
-                </div>
 
-                {/* Resume */}
-                <div>
-                  <label className="text-sm font-medium text-muted-foreground">Resume</label>
-                  <div className="flex items-center gap-3 mt-1">
-                    <FileText className="h-5 w-5 text-muted-foreground" />
-                    <span className="text-foreground">{profile.resume}</span>
-                    {isEditing && (
-                      <Button variant="outline" size="sm">
-                        Upload New
-                      </Button>
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      O/L Pass Count
+                    </label>
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        value={safeEdited.olPassCount}
+                        onChange={(e) =>
+                          setEditedProfile({
+                            ...safeEdited,
+                            olPassCount: e.target.value,
+                          })
+                        }
+                        placeholder="Number of O/L passes"
+                        min="0"
+                        max="15"
+                      />
+                    ) : (
+                      <p className="text-foreground flex items-center gap-2 mt-1">
+                        <Briefcase className="h-4 w-4 text-muted-foreground" />
+                        {safeProfile.olPassCount || "-"}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -497,160 +692,124 @@ export default function UserDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockApplications.map((application) => (
-                    <div
-                      key={application.id}
-                      className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors gap-4"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-                          {application.companyLogo}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">
-                            {application.jobTitle}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {application.company} • {application.location}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            Applied: {application.appliedDate}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        {getStatusBadge(application.status)}
-                        <Link to={`/jobs/${application.id}`}>
-                          <Button variant="outline" size="sm">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </div>
+                  {apps.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                      <p>No applications yet.</p>
+                      <Link to="/jobs">
+                        <Button variant="outline" className="mt-4">
+                          Browse Jobs
+                        </Button>
+                      </Link>
                     </div>
-                  ))}
+                  ) : (
+                    apps.map((a) => {
+                      const jobTitle = a.job?.jobTitle ?? "Job";
+                      const companyName =
+                        a.job?.company?.companyName ?? "Company";
+                      const location = a.job?.location ?? "-";
+                      const status = normalizeStatus(a.status);
+                      const appliedDate = formatDate(a.createdAt);
+
+                      const companyLogoLetter = (companyName || "C")
+                        .charAt(0)
+                        .toUpperCase();
+
+                      return (
+                        <div
+                          key={a.id}
+                          className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors gap-4"
+                        >
+                          <div className="flex items-center gap-4">
+                            <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
+                              {companyLogoLetter}
+                            </div>
+                            <div>
+                              <h3 className="font-semibold text-foreground">
+                                {jobTitle}
+                              </h3>
+                              <p className="text-sm text-muted-foreground">
+                                {companyName} • {location}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                Applied: {appliedDate}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-3">
+                            {getStatusBadge(status)}
+
+                            {a.job?.id ? (
+                              <Link to={`/jobs/${a.job.id}`}>
+                                <Button variant="outline" size="sm">
+                                  <ExternalLink className="h-4 w-4" />
+                                </Button>
+                              </Link>
+                            ) : (
+                              <Button variant="outline" size="sm" disabled>
+                                <ExternalLink className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
                 </div>
-                <div className="mt-6 text-center">
-                  <Link to="/my-applications">
-                    <Button variant="outline">View All Applications</Button>
-                  </Link>
-                </div>
+
+                {apps.length > 0 && (
+                  <div className="mt-6 text-center">
+                    <Link to="/my-applications">
+                      <Button variant="outline">View All Applications</Button>
+                    </Link>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
 
           {/* Saved Tab */}
           <TabsContent value="saved">
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Saved Jobs */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Briefcase className="h-5 w-5" />
-                    Saved Jobs
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {mockSavedJobs.map((job) => (
-                      <div
-                        key={job.id}
-                        className="p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                      >
-                        <h4 className="font-medium text-foreground">{job.title}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {job.company} • {job.location}
-                        </p>
-                        <p className="text-sm font-medium text-primary mt-1">{job.salary}</p>
-                      </div>
-                    ))}
-                  </div>
-                  <Link to="/jobs" className="block mt-4">
-                    <Button variant="outline" className="w-full">
-                      Browse More Jobs
+            <Card>
+              <CardHeader>
+                <CardTitle>Saved Jobs</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8 text-muted-foreground">
+                  <BookmarkCheck className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                  <p>No saved jobs yet.</p>
+                  <Link to="/jobs">
+                    <Button variant="outline" className="mt-4">
+                      Browse Jobs
                     </Button>
                   </Link>
-                </CardContent>
-              </Card>
-
-              {/* Followed Companies */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Building2 className="h-5 w-5" />
-                    Followed Companies
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {mockSavedCompanies.map((company) => (
-                      <div
-                        key={company.id}
-                        className="p-3 rounded-lg border hover:bg-muted/50 transition-colors"
-                      >
-                        <h4 className="font-medium text-foreground">{company.name}</h4>
-                        <p className="text-sm text-muted-foreground">{company.industry}</p>
-                        <p className="text-sm text-primary mt-1">{company.jobs} open positions</p>
-                      </div>
-                    ))}
-                  </div>
-                  <Link to="/companies" className="block mt-4">
-                    <Button variant="outline" className="w-full">
-                      Explore Companies
-                    </Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           {/* Browse Tab */}
           <TabsContent value="browse">
-            <div className="grid md:grid-cols-3 gap-6">
-              <Card className="card-hover">
-                <CardContent className="pt-6 text-center">
-                  <div className="h-16 w-16 rounded-2xl gradient-primary flex items-center justify-center mx-auto mb-4">
-                    <Briefcase className="h-8 w-8 text-primary-foreground" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-2">Browse Jobs</h3>
+            <Card>
+              <CardHeader>
+                <CardTitle>Browse Jobs</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-center py-8">
+                  <Eye className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-50" />
                   <p className="text-muted-foreground mb-4">
-                    Explore thousands of job opportunities
+                    Discover your next opportunity
                   </p>
                   <Link to="/jobs">
-                    <Button className="w-full">View Jobs</Button>
+                    <Button>
+                      <Briefcase className="h-4 w-4 mr-2" />
+                      View All Jobs
+                    </Button>
                   </Link>
-                </CardContent>
-              </Card>
-
-              <Card className="card-hover">
-                <CardContent className="pt-6 text-center">
-                  <div className="h-16 w-16 rounded-2xl gradient-accent flex items-center justify-center mx-auto mb-4">
-                    <Building2 className="h-8 w-8 text-accent-foreground" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-2">Companies</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Discover top employers in your field
-                  </p>
-                  <Link to="/companies">
-                    <Button variant="outline" className="w-full">View Companies</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-
-              <Card className="card-hover">
-                <CardContent className="pt-6 text-center">
-                  <div className="h-16 w-16 rounded-2xl gradient-warm flex items-center justify-center mx-auto mb-4">
-                    <GraduationCap className="h-8 w-8 text-warning-foreground" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-foreground mb-2">Institutions</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Find courses and training programs
-                  </p>
-                  <Link to="/institutions">
-                    <Button variant="outline" className="w-full">View Institutions</Button>
-                  </Link>
-                </CardContent>
-              </Card>
-            </div>
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>
