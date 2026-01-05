@@ -98,15 +98,30 @@ export function Navbar() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-56">
                     <DropdownMenuItem asChild>
-                      <Link to="/dashboard" className="flex items-center gap-2">
+                      <Link
+                        to="/user/dashboard"
+                        className="flex items-center gap-2"
+                      >
                         <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
+                        User Dashboard
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
-                      <Link to="/profile" className="flex items-center gap-2">
+                      <Link
+                        to="/company/dashboard"
+                        className="flex items-center gap-2"
+                      >
+                        <Building2 className="h-4 w-4" />
+                        Company Dashboard
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link
+                        to="/my-applications"
+                        className="flex items-center gap-2"
+                      >
                         <User className="h-4 w-4" />
-                        Profile
+                        My Applications
                       </Link>
                     </DropdownMenuItem>
                     <DropdownMenuItem asChild>
