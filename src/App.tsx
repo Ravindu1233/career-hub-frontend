@@ -3,6 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
+
 import Index from "./pages/Index";
 import Jobs from "./pages/Jobs";
 import JobDetails from "./pages/JobDetails";
@@ -20,6 +21,8 @@ import CompanyApplications from "./pages/CompanyApplications";
 import UserDashboard from "./pages/UserDashboard";
 import CompanyDashboard from "./pages/CompanyDashboard";
 
+import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+
 const queryClient = new QueryClient();
 
 const App = () => (
@@ -30,24 +33,47 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+
           <Route path="/jobs" element={<Jobs />} />
           <Route path="/jobs/:id" element={<JobDetails />} />
           <Route path="/jobs/:id/apply" element={<ApplyJob />} />
+
           <Route path="/companies" element={<Companies />} />
           <Route path="/companies/:id" element={<CompanyDetails />} />
+
           <Route path="/institutions" element={<Institutions />} />
           <Route path="/institutions/:id" element={<InstitutionDetails />} />
+
           <Route path="/guidance" element={<CareerGuidance />} />
           <Route path="/my-applications" element={<MyApplications />} />
+
           <Route
             path="/company/applications"
             element={<CompanyApplications />}
           />
-          <Route path="/user/dashboard" element={<UserDashboard />} />
-          <Route path="/company/dashboard" element={<CompanyDashboard />} />
+
+          {/* ✅ Protected Dashboards */}
+          <Route
+            path="/user/dashboard"
+            element={
+              <ProtectedRoute allow="USER">
+                <UserDashboard />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/company/dashboard"
+            element={
+              <ProtectedRoute allow="COMPANY">
+                <CompanyDashboard />
+              </ProtectedRoute>
+            }
+          />
+
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+
+          {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

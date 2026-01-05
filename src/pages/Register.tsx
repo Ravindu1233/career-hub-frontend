@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Briefcase,
@@ -14,17 +14,50 @@ import {
   CheckCircle,
   Check,
 } from "lucide-react";
+import { api } from "@/lib/api";
 
 type UserType = "jobseeker" | "employer";
 
 const passwordRequirements = [
-  { id: "length", label: "At least 8 characters", check: (p: string) => p.length >= 8 },
-  { id: "uppercase", label: "One uppercase letter", check: (p: string) => /[A-Z]/.test(p) },
+  {
+    id: "length",
+    label: "At least 8 characters",
+    check: (p: string) => p.length >= 8,
+  },
+  {
+    id: "uppercase",
+    label: "One uppercase letter",
+    check: (p: string) => /[A-Z]/.test(p),
+  },
   { id: "number", label: "One number", check: (p: string) => /[0-9]/.test(p) },
-  { id: "special", label: "One special character", check: (p: string) => /[!@#$%^&*]/.test(p) },
+  {
+    id: "special",
+    label: "One special character",
+    check: (p: string) => /[!@#$%^&*]/.test(p),
+  },
 ];
 
+function splitName(fullName: string) {
+  const cleaned = fullName.trim().replace(/\s+/g, " ");
+  if (!cleaned) return { firstName: "", lastName: "" };
+  const parts = cleaned.split(" ");
+  const firstName = parts[0] ?? "";
+  const lastName = parts.slice(1).join(" ") || null;
+  return { firstName, lastName };
+}
+
+function getErrorMessage(err: any): string {
+  // NestJS common error formats:
+  // { message: "..." } or { message: ["..."] }
+  const msg = err?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(", ");
+  if (typeof msg === "string") return msg;
+  return "Something went wrong. Please try again.";
+}
+
 export default function Register() {
+  const navigate = useNavigate();
+
   const [userType, setUserType] = useState<UserType>("jobseeker");
   const [formData, setFormData] = useState({
     fullName: "",
@@ -34,20 +67,84 @@ export default function Register() {
     password: "",
     confirmPassword: "",
   });
+
   const [showPassword, setShowPassword] = useState(false);
   const [agreed, setAgreed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // simple inline feedback without changing UI layout much
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const passwordOk = useMemo(
+    () => passwordRequirements.every((r) => r.check(formData.password)),
+    [formData.password]
+  );
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
+    setSuccess(null);
+
+    // basic frontend validations
+    if (formData.password !== formData.confirmPassword) {
+      setError("Passwords do not match.");
+      return;
+    }
+    if (!passwordOk) {
+      setError("Please meet all password requirements.");
+      return;
+    }
+
     setIsLoading(true);
-    setTimeout(() => {
+    try {
+      if (userType === "jobseeker") {
+        const { firstName, lastName } = splitName(formData.fullName);
+
+        const payload = {
+          email: formData.email,
+          password: formData.password,
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+          mobile: formData.phone || undefined,
+        };
+
+        const res = await api.post("/auth/user/register", payload);
+
+        // backend returns { token, user }
+        if (res?.data?.token) localStorage.setItem("token", res.data.token);
+        localStorage.setItem("authType", "USER");
+
+        setSuccess("Account created successfully!");
+        // go to login or dashboard
+        navigate("/login");
+      } else {
+        // employer
+        const payload = {
+          email: formData.email,
+          password: formData.password,
+          companyName: formData.companyName,
+          mobile: formData.phone || undefined,
+        };
+
+        const res = await api.post("/auth/company/register", payload);
+
+        // backend returns { token, company }
+        if (res?.data?.token) localStorage.setItem("token", res.data.token);
+        localStorage.setItem("authType", "COMPANY");
+
+        setSuccess("Company account created successfully!");
+        navigate("/login");
+      }
+    } catch (err: any) {
+      setError(getErrorMessage(err));
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -79,7 +176,7 @@ export default function Register() {
           </p>
 
           <div className="space-y-4">
-            {userType === "jobseeker"
+            {(userType === "jobseeker"
               ? [
                   "Browse thousands of verified job listings",
                   "Get matched with relevant opportunities",
@@ -90,8 +187,11 @@ export default function Register() {
                   "Access a pool of qualified candidates",
                   "Streamlined recruitment process",
                 ]
-            .map((feature) => (
-              <div key={feature} className="flex items-center gap-3 text-white/90">
+            ).map((feature) => (
+              <div
+                key={feature}
+                className="flex items-center gap-3 text-white/90"
+              >
                 <CheckCircle className="h-5 w-5 text-white" />
                 <span>{feature}</span>
               </div>
@@ -114,9 +214,25 @@ export default function Register() {
           </Link>
 
           <div className="text-center lg:text-left mb-8">
-            <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">Create Account</h2>
-            <p className="text-muted-foreground">Get started with your free account</p>
+            <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
+              Create Account
+            </h2>
+            <p className="text-muted-foreground">
+              Get started with your free account
+            </p>
           </div>
+
+          {/* ✅ error/success (small, not changing UI structure) */}
+          {error && (
+            <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+          {success && (
+            <div className="mb-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-600">
+              {success}
+            </div>
+          )}
 
           {/* User type selection */}
           <div className="grid grid-cols-2 gap-4 mb-8">
@@ -129,16 +245,33 @@ export default function Register() {
                   : "border-border hover:border-primary/30"
               }`}
             >
-              <div className={`h-12 w-12 rounded-xl mx-auto mb-3 flex items-center justify-center ${
-                userType === "jobseeker" ? "bg-primary/10" : "bg-muted"
-              }`}>
-                <User className={`h-6 w-6 ${userType === "jobseeker" ? "text-primary" : "text-muted-foreground"}`} />
+              <div
+                className={`h-12 w-12 rounded-xl mx-auto mb-3 flex items-center justify-center ${
+                  userType === "jobseeker" ? "bg-primary/10" : "bg-muted"
+                }`}
+              >
+                <User
+                  className={`h-6 w-6 ${
+                    userType === "jobseeker"
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  }`}
+                />
               </div>
-              <p className={`font-medium ${userType === "jobseeker" ? "text-foreground" : "text-muted-foreground"}`}>
+              <p
+                className={`font-medium ${
+                  userType === "jobseeker"
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
                 Job Seeker
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Looking for opportunities</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Looking for opportunities
+              </p>
             </button>
+
             <button
               type="button"
               onClick={() => setUserType("employer")}
@@ -148,15 +281,31 @@ export default function Register() {
                   : "border-border hover:border-primary/30"
               }`}
             >
-              <div className={`h-12 w-12 rounded-xl mx-auto mb-3 flex items-center justify-center ${
-                userType === "employer" ? "bg-primary/10" : "bg-muted"
-              }`}>
-                <Building2 className={`h-6 w-6 ${userType === "employer" ? "text-primary" : "text-muted-foreground"}`} />
+              <div
+                className={`h-12 w-12 rounded-xl mx-auto mb-3 flex items-center justify-center ${
+                  userType === "employer" ? "bg-primary/10" : "bg-muted"
+                }`}
+              >
+                <Building2
+                  className={`h-6 w-6 ${
+                    userType === "employer"
+                      ? "text-primary"
+                      : "text-muted-foreground"
+                  }`}
+                />
               </div>
-              <p className={`font-medium ${userType === "employer" ? "text-foreground" : "text-muted-foreground"}`}>
+              <p
+                className={`font-medium ${
+                  userType === "employer"
+                    ? "text-foreground"
+                    : "text-muted-foreground"
+                }`}
+              >
                 Employer
               </p>
-              <p className="text-xs text-muted-foreground mt-1">Hiring talent</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Hiring talent
+              </p>
             </button>
           </div>
 
@@ -164,7 +313,10 @@ export default function Register() {
             {/* Company name (employer only) */}
             {userType === "employer" && (
               <div>
-                <label htmlFor="companyName" className="block text-sm font-medium text-foreground mb-2">
+                <label
+                  htmlFor="companyName"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
                   Company Name
                 </label>
                 <div className="relative">
@@ -185,7 +337,10 @@ export default function Register() {
 
             {/* Full name */}
             <div>
-              <label htmlFor="fullName" className="block text-sm font-medium text-foreground mb-2">
+              <label
+                htmlFor="fullName"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
                 Full Name
               </label>
               <div className="relative">
@@ -206,7 +361,10 @@ export default function Register() {
             {/* Email & Phone row */}
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+                <label
+                  htmlFor="email"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
                   Email
                 </label>
                 <div className="relative">
@@ -224,7 +382,10 @@ export default function Register() {
                 </div>
               </div>
               <div>
-                <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">
+                <label
+                  htmlFor="phone"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
                   Phone
                 </label>
                 <div className="relative">
@@ -245,7 +406,10 @@ export default function Register() {
 
             {/* Password */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
                 Password
               </label>
               <div className="relative">
@@ -265,21 +429,34 @@ export default function Register() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
                 </button>
               </div>
+
               {/* Password requirements */}
               <div className="grid grid-cols-2 gap-2 mt-3">
                 {passwordRequirements.map((req) => (
                   <div key={req.id} className="flex items-center gap-2">
-                    <div className={`h-4 w-4 rounded-full flex items-center justify-center ${
-                      req.check(formData.password) ? "bg-success" : "bg-muted"
-                    }`}>
-                      {req.check(formData.password) && <Check className="h-3 w-3 text-white" />}
+                    <div
+                      className={`h-4 w-4 rounded-full flex items-center justify-center ${
+                        req.check(formData.password) ? "bg-success" : "bg-muted"
+                      }`}
+                    >
+                      {req.check(formData.password) && (
+                        <Check className="h-3 w-3 text-white" />
+                      )}
                     </div>
-                    <span className={`text-xs ${
-                      req.check(formData.password) ? "text-success" : "text-muted-foreground"
-                    }`}>
+                    <span
+                      className={`text-xs ${
+                        req.check(formData.password)
+                          ? "text-success"
+                          : "text-muted-foreground"
+                      }`}
+                    >
                       {req.label}
                     </span>
                   </div>
@@ -289,7 +466,10 @@ export default function Register() {
 
             {/* Confirm password */}
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground mb-2">
+              <label
+                htmlFor="confirmPassword"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
                 Confirm Password
               </label>
               <div className="relative">
@@ -319,14 +499,23 @@ export default function Register() {
               />
               <label htmlFor="terms" className="text-sm text-muted-foreground">
                 I agree to the{" "}
-                <Link to="/terms" className="text-primary hover:underline">Terms of Service</Link>
-                {" "}and{" "}
-                <Link to="/privacy" className="text-primary hover:underline">Privacy Policy</Link>
+                <Link to="/terms" className="text-primary hover:underline">
+                  Terms of Service
+                </Link>{" "}
+                and{" "}
+                <Link to="/privacy" className="text-primary hover:underline">
+                  Privacy Policy
+                </Link>
               </label>
             </div>
 
             {/* Submit button */}
-            <Button type="submit" size="lg" className="w-full" disabled={isLoading || !agreed}>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={isLoading || !agreed}
+            >
               {isLoading ? (
                 <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
@@ -341,7 +530,10 @@ export default function Register() {
           {/* Sign in link */}
           <p className="text-center mt-8 text-muted-foreground">
             Already have an account?{" "}
-            <Link to="/login" className="text-primary font-medium hover:underline">
+            <Link
+              to="/login"
+              className="text-primary font-medium hover:underline"
+            >
               Sign in
             </Link>
           </p>

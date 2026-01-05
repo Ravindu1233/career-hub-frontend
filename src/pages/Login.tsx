@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   Briefcase,
@@ -7,27 +7,86 @@ import {
   Lock,
   Eye,
   EyeOff,
-  User,
-  Building2,
   ArrowRight,
   CheckCircle,
 } from "lucide-react";
+import { api } from "@/lib/api";
 
-type UserType = "jobseeker" | "employer";
+// ✅ CHANGE THESE TWO IF YOUR ROUTES ARE DIFFERENT
+const USER_DASHBOARD_PATH = "/user/dashboard";
+const COMPANY_DASHBOARD_PATH = "/company/dashboard";
+
+function getErrorMessage(err: any): string {
+  const msg = err?.response?.data?.message;
+  if (Array.isArray(msg)) return msg.join(", ");
+  if (typeof msg === "string") return msg;
+  return "Invalid credentials. Please try again.";
+}
+
+function isNotFoundOrUnauthorized(err: any) {
+  const status = err?.response?.status;
+  return status === 401 || status === 404;
+}
 
 export default function Login() {
+  const navigate = useNavigate();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // ✅ minimal feedback (no UI redesign)
+  const [error, setError] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setIsLoading(true);
-    // Simulate login
-    setTimeout(() => {
+
+    try {
+      // -------- 1) Try USER login --------
+      try {
+        const res = await api.post("/auth/user/login", { email, password });
+
+        const token = res?.data?.token;
+        if (token) localStorage.setItem("token", token);
+
+        localStorage.setItem("authType", "USER");
+
+        // optional store user if returned
+        if (res?.data?.user)
+          localStorage.setItem("user", JSON.stringify(res.data.user));
+
+        navigate(USER_DASHBOARD_PATH);
+        return;
+      } catch (err: any) {
+        // If error is NOT 401/404, show it (validation, server error etc.)
+        if (!isNotFoundOrUnauthorized(err)) {
+          setError(getErrorMessage(err));
+          return;
+        }
+        // else try company login
+      }
+
+      // -------- 2) Try COMPANY login --------
+      const res2 = await api.post("/auth/company/login", { email, password });
+
+      const token2 = res2?.data?.token;
+      if (token2) localStorage.setItem("token", token2);
+
+      localStorage.setItem("authType", "COMPANY");
+
+      // optional store company if returned
+      if (res2?.data?.company)
+        localStorage.setItem("company", JSON.stringify(res2.data.company));
+
+      navigate(COMPANY_DASHBOARD_PATH);
+    } catch (err: any) {
+      setError(getErrorMessage(err));
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -55,7 +114,8 @@ export default function Login() {
             Welcome back to your career journey
           </h1>
           <p className="text-xl text-white/80 mb-12">
-            Access thousands of job opportunities and manage your applications with ease.
+            Access thousands of job opportunities and manage your applications
+            with ease.
           </p>
 
           {/* Features */}
@@ -65,7 +125,10 @@ export default function Login() {
               "Get personalized job recommendations",
               "Connect with top employers",
             ].map((feature) => (
-              <div key={feature} className="flex items-center gap-3 text-white/90">
+              <div
+                key={feature}
+                className="flex items-center gap-3 text-white/90"
+              >
                 <CheckCircle className="h-5 w-5 text-white" />
                 <span>{feature}</span>
               </div>
@@ -88,14 +151,28 @@ export default function Login() {
           </Link>
 
           <div className="text-center lg:text-left mb-8">
-            <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">Welcome Back</h2>
-            <p className="text-muted-foreground">Sign in to continue to your dashboard</p>
+            <h2 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
+              Welcome Back
+            </h2>
+            <p className="text-muted-foreground">
+              Sign in to continue to your dashboard
+            </p>
           </div>
+
+          {/* ✅ Error box (small, UI-safe) */}
+          {error && (
+            <div className="mb-4 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-foreground mb-2"
+              >
                 Email Address
               </label>
               <div className="relative">
@@ -115,10 +192,16 @@ export default function Login() {
             {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <label htmlFor="password" className="block text-sm font-medium text-foreground">
+                <label
+                  htmlFor="password"
+                  className="block text-sm font-medium text-foreground"
+                >
                   Password
                 </label>
-                <Link to="/forgot-password" className="text-sm text-primary hover:underline">
+                <Link
+                  to="/forgot-password"
+                  className="text-sm text-primary hover:underline"
+                >
                   Forgot password?
                 </Link>
               </div>
@@ -138,7 +221,11 @@ export default function Login() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                 >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                  {showPassword ? (
+                    <EyeOff className="h-5 w-5" />
+                  ) : (
+                    <Eye className="h-5 w-5" />
+                  )}
                 </button>
               </div>
             </div>
@@ -150,13 +237,21 @@ export default function Login() {
                 type="checkbox"
                 className="h-4 w-4 rounded border-border text-primary focus:ring-primary/20"
               />
-              <label htmlFor="remember" className="text-sm text-muted-foreground">
+              <label
+                htmlFor="remember"
+                className="text-sm text-muted-foreground"
+              >
                 Remember me for 30 days
               </label>
             </div>
 
             {/* Submit button */}
-            <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full"
+              disabled={isLoading}
+            >
               {isLoading ? (
                 <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
               ) : (
@@ -173,11 +268,13 @@ export default function Login() {
                 <div className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-4 bg-background text-muted-foreground">or continue with</span>
+                <span className="px-4 bg-background text-muted-foreground">
+                  or continue with
+                </span>
               </div>
             </div>
 
-            {/* Social login */}
+            {/* Social login (still mock) */}
             <div className="grid grid-cols-2 gap-4">
               <Button variant="outline" type="button" className="h-12">
                 <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
@@ -201,8 +298,12 @@ export default function Login() {
                 Google
               </Button>
               <Button variant="outline" type="button" className="h-12">
-                <svg className="h-5 w-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+                <svg
+                  className="h-5 w-5 mr-2"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
                 </svg>
                 LinkedIn
               </Button>
@@ -212,7 +313,10 @@ export default function Login() {
           {/* Sign up link */}
           <p className="text-center mt-8 text-muted-foreground">
             Don't have an account?{" "}
-            <Link to="/register" className="text-primary font-medium hover:underline">
+            <Link
+              to="/register"
+              className="text-primary font-medium hover:underline"
+            >
               Sign up
             </Link>
           </p>

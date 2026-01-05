@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -32,12 +32,76 @@ const navigation = [
   { name: "Career Guidance", href: "/guidance", icon: BookOpen },
 ];
 
+function getDisplayName() {
+  const authType = localStorage.getItem("authType"); // "USER" | "COMPANY"
+  if (authType === "USER") {
+    const raw = localStorage.getItem("user");
+    if (!raw) return "User";
+    try {
+      const u = JSON.parse(raw);
+      return u?.firstName
+        ? `${u.firstName}${u.lastName ? " " + u.lastName : ""}`
+        : u?.email || "User";
+    } catch {
+      return "User";
+    }
+  }
+
+  if (authType === "COMPANY") {
+    const raw = localStorage.getItem("company");
+    if (!raw) return "Company";
+    try {
+      const c = JSON.parse(raw);
+      return c?.companyName || c?.email || "Company";
+    } catch {
+      return "Company";
+    }
+  }
+
+  return "Account";
+}
+
+function getDashboardPath() {
+  const authType = localStorage.getItem("authType");
+  return authType === "COMPANY" ? "/company/dashboard" : "/user/dashboard";
+}
+
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const isLoggedIn = false; // This would come from auth context
+  const navigate = useNavigate();
+
+  // ✅ real auth state
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(
+    !!localStorage.getItem("token")
+  );
+
+  // ✅ keep navbar updated when token changes (login/logout, multi-tab)
+  useEffect(() => {
+    const syncAuth = () => setIsLoggedIn(!!localStorage.getItem("token"));
+    window.addEventListener("storage", syncAuth);
+    window.addEventListener("focus", syncAuth);
+    return () => {
+      window.removeEventListener("storage", syncAuth);
+      window.removeEventListener("focus", syncAuth);
+    };
+  }, []);
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    localStorage.removeItem("authType");
+    localStorage.removeItem("user");
+    localStorage.removeItem("company");
+
+    setIsLoggedIn(false);
+    setMobileMenuOpen(false);
+    navigate("/login");
+  };
+
+  const dashboardPath = getDashboardPath();
+  const displayName = getDisplayName();
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -92,29 +156,24 @@ export function Navbar() {
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
                         <User className="h-4 w-4 text-primary" />
                       </div>
-                      <span className="text-sm font-medium">John Doe</span>
+                      <span className="text-sm font-medium">{displayName}</span>
                       <ChevronDown className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
+
                   <DropdownMenuContent align="end" className="w-56">
+                    {/* ✅ One dashboard button based on authType */}
                     <DropdownMenuItem asChild>
                       <Link
-                        to="/user/dashboard"
+                        to={dashboardPath}
                         className="flex items-center gap-2"
                       >
                         <LayoutDashboard className="h-4 w-4" />
-                        User Dashboard
+                        Dashboard
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/company/dashboard"
-                        className="flex items-center gap-2"
-                      >
-                        <Building2 className="h-4 w-4" />
-                        Company Dashboard
-                      </Link>
-                    </DropdownMenuItem>
+
+                    {/* Keep your existing items (optional) */}
                     <DropdownMenuItem asChild>
                       <Link
                         to="/my-applications"
@@ -124,14 +183,20 @@ export function Navbar() {
                         My Applications
                       </Link>
                     </DropdownMenuItem>
+
                     <DropdownMenuItem asChild>
                       <Link to="/settings" className="flex items-center gap-2">
                         <Settings className="h-4 w-4" />
                         Settings
                       </Link>
                     </DropdownMenuItem>
+
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem className="text-destructive">
+
+                    <DropdownMenuItem
+                      className="text-destructive"
+                      onClick={handleLogout}
+                    >
                       <LogOut className="h-4 w-4 mr-2" />
                       Log out
                     </DropdownMenuItem>
@@ -187,15 +252,38 @@ export function Navbar() {
                 {item.name}
               </Link>
             ))}
+
             <div className="pt-4 space-y-2">
-              <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
-                <Button variant="outline" className="w-full">
-                  Sign In
-                </Button>
-              </Link>
-              <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
-                <Button className="w-full">Post a Job</Button>
-              </Link>
+              {!isLoggedIn ? (
+                <>
+                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                    <Button variant="outline" className="w-full">
+                      Sign In
+                    </Button>
+                  </Link>
+                  <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
+                    <Button className="w-full">Post a Job</Button>
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    to={dashboardPath}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Button variant="outline" className="w-full">
+                      Dashboard
+                    </Button>
+                  </Link>
+                  <Button
+                    className="w-full"
+                    variant="destructive"
+                    onClick={handleLogout}
+                  >
+                    Logout
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </div>
