@@ -54,6 +54,7 @@ type BackendUser = {
   skills?: string[] | null;
   schools?: string | null;
   dob?: string | null;
+  certifications?: string[];
   olPassCount?: number | null;
   profilePic?: string | null;
 };
@@ -82,6 +83,7 @@ type BackendApplication = {
 // =============================
 // UI Profile Model
 // =============================
+// UI Profile Type
 type UiProfile = {
   name: string;
   email: string;
@@ -91,6 +93,8 @@ type UiProfile = {
   skills: string[];
   schools: string;
   olPassCount: string;
+  dob?: string; // Include dob here
+  certifications: string[]; // Include certifications here
 };
 
 // =============================
@@ -108,6 +112,8 @@ function toUiProfile(u: BackendUser): UiProfile {
     skills: Array.isArray(u.skills) ? u.skills : [],
     schools: u.schools ?? "",
     olPassCount: u.olPassCount != null ? String(u.olPassCount) : "",
+    dob: u.dob ?? "", // Include dob here
+    certifications: Array.isArray(u.certifications) ? u.certifications : [], // Ensure certifications is always an array
   };
 }
 
@@ -128,6 +134,8 @@ function toBackendUpdatePayload(p: UiProfile) {
     bio: p.bio || null,
     skills: Array.isArray(p.skills) ? p.skills : [],
     schools: p.schools || null,
+    certifications: p.certifications || [], // Ensure certifications is included
+    dob: p.dob || null, // Include dob in the payload
     olPassCount: Number.isFinite(olPassNumber as any) ? olPassNumber : null,
   };
 }
@@ -294,14 +302,40 @@ export default function UserDashboard() {
     skills: [],
     schools: "",
     olPassCount: "",
+    dob: "",
+    certifications: [],
   };
-
   const safeEdited: UiProfile = editedProfile ?? safeProfile;
 
   const apps = applications ?? [];
   const interviewsCount = apps.filter(
     (a) => normalizeStatus(a.status) === "interview_scheduled"
   ).length;
+
+  const [newCertification, setNewCertification] = useState("");
+
+  const addCertification = () => {
+    if (!editedProfile) return;
+    const cert = newCertification.trim();
+    if (!cert) return;
+    if (editedProfile.certifications.includes(cert)) return;
+
+    setEditedProfile({
+      ...editedProfile,
+      certifications: [...editedProfile.certifications, cert],
+    });
+    setNewCertification("");
+  };
+
+  const removeCertification = (certification: string) => {
+    if (!editedProfile) return;
+    setEditedProfile({
+      ...editedProfile,
+      certifications: editedProfile.certifications.filter(
+        (c) => c !== certification
+      ),
+    });
+  };
 
   return (
     <MainLayout>
@@ -544,6 +578,31 @@ export default function UserDashboard() {
                         </p>
                       )}
                     </div>
+                    {/* Date of Birth */}
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Date of Birth
+                      </label>
+                      {isEditing ? (
+                        <Input
+                          type="date"
+                          value={
+                            safeEdited.dob ? safeEdited.dob.split("T")[0] : ""
+                          }
+                          onChange={(e) =>
+                            setEditedProfile({
+                              ...safeEdited,
+                              dob: e.target.value,
+                            })
+                          }
+                        />
+                      ) : (
+                        <p className="text-foreground flex items-center gap-2 mt-1">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          {formatDate(safeProfile.dob) || "-"}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -624,6 +683,66 @@ export default function UserDashboard() {
                     {!isEditing && safeProfile.skills.length === 0 && (
                       <p className="text-sm text-muted-foreground">
                         No skills added yet.
+                      </p>
+                    )}
+                  </div>
+                </div>
+                {/* Certifications */}
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground mb-2 block">
+                    Certifications
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {(isEditing ? safeEdited : safeProfile).certifications.map(
+                      (cert) => (
+                        <Badge
+                          key={cert}
+                          variant="secondary"
+                          className={isEditing ? "pr-1" : ""}
+                        >
+                          {cert}
+                          {isEditing && (
+                            <button
+                              type="button"
+                              onClick={() => removeCertification(cert)}
+                              className="ml-1 hover:text-destructive"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </Badge>
+                      )
+                    )}
+
+                    {isEditing && (
+                      <div className="flex gap-1">
+                        <Input
+                          value={newCertification}
+                          onChange={(e) => setNewCertification(e.target.value)}
+                          placeholder="Add certification"
+                          className="w-32 h-6 text-sm"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              addCertification();
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          onClick={addCertification}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {!isEditing && safeProfile.certifications.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        No certifications added yet.
                       </p>
                     )}
                   </div>
