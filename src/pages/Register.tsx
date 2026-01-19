@@ -78,7 +78,7 @@ export default function Register() {
 
   const passwordOk = useMemo(
     () => passwordRequirements.every((r) => r.check(formData.password)),
-    [formData.password]
+    [formData.password],
   );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -128,7 +128,7 @@ export default function Register() {
           email: formData.email,
           password: formData.password,
           companyName: formData.companyName,
-          mobile: formData.phone || undefined,
+          phone: formData.phone || undefined, // ✅ FIX
         };
 
         const res = await api.post("/auth/company/register", payload);
@@ -335,28 +335,30 @@ export default function Register() {
               </div>
             )}
 
-            {/* Full name */}
-            <div>
-              <label
-                htmlFor="fullName"
-                className="block text-sm font-medium text-foreground mb-2"
-              >
-                Full Name
-              </label>
-              <div className="relative">
-                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                <input
-                  id="fullName"
-                  name="fullName"
-                  type="text"
-                  value={formData.fullName}
-                  onChange={handleChange}
-                  placeholder="John Doe"
-                  className="w-full h-12 pl-12 pr-4 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
-                  required
-                />
+            {/* Full name (jobseeker only) */}
+            {userType === "jobseeker" && (
+              <div>
+                <label
+                  htmlFor="fullName"
+                  className="block text-sm font-medium text-foreground mb-2"
+                >
+                  Full Name
+                </label>
+                <div className="relative">
+                  <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+                  <input
+                    id="fullName"
+                    name="fullName"
+                    type="text"
+                    value={formData.fullName}
+                    onChange={handleChange}
+                    placeholder="John Doe"
+                    className="w-full h-12 pl-12 pr-4 rounded-xl bg-background border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                    required
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Email & Phone row */}
             <div className="grid sm:grid-cols-2 gap-4">

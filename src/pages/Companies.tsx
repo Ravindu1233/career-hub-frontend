@@ -1,8 +1,7 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Select,
@@ -11,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { api } from "@/lib/api";
 import {
   Search,
   MapPin,
@@ -18,91 +18,10 @@ import {
   Briefcase,
   CheckCircle,
   Building2,
-  Globe,
   Star,
 } from "lucide-react";
 
-const companies = [
-  {
-    id: 1,
-    name: "TechCorp Global",
-    logo: "TC",
-    industry: "Technology",
-    location: "San Francisco, CA",
-    size: "1000-5000",
-    openJobs: 24,
-    rating: 4.5,
-    verified: true,
-    description: "Leading technology company specializing in cloud solutions and AI-powered applications.",
-    founded: "2010",
-  },
-  {
-    id: 2,
-    name: "InnovateTech Solutions",
-    logo: "IT",
-    industry: "Software",
-    location: "New York, NY",
-    size: "500-1000",
-    openJobs: 18,
-    rating: 4.3,
-    verified: true,
-    description: "Innovative software development company building next-generation enterprise solutions.",
-    founded: "2015",
-  },
-  {
-    id: 3,
-    name: "Digital Dynamics",
-    logo: "DD",
-    industry: "Digital Marketing",
-    location: "Los Angeles, CA",
-    size: "100-500",
-    openJobs: 12,
-    rating: 4.7,
-    verified: true,
-    description: "Full-service digital marketing agency helping brands grow their online presence.",
-    founded: "2018",
-  },
-  {
-    id: 4,
-    name: "CloudFirst Inc",
-    logo: "CF",
-    industry: "Cloud Computing",
-    location: "Seattle, WA",
-    size: "500-1000",
-    openJobs: 31,
-    rating: 4.6,
-    verified: true,
-    description: "Enterprise cloud infrastructure and services provider.",
-    founded: "2012",
-  },
-  {
-    id: 5,
-    name: "DataFlow Analytics",
-    logo: "DA",
-    industry: "Data Science",
-    location: "Boston, MA",
-    size: "100-500",
-    openJobs: 8,
-    rating: 4.4,
-    verified: false,
-    description: "Data analytics and business intelligence solutions for modern enterprises.",
-    founded: "2019",
-  },
-  {
-    id: 6,
-    name: "FinanceHub",
-    logo: "FH",
-    industry: "Finance",
-    location: "Chicago, IL",
-    size: "1000-5000",
-    openJobs: 15,
-    rating: 4.2,
-    verified: true,
-    description: "Financial technology company revolutionizing personal and business finance.",
-    founded: "2014",
-  },
-];
-
+// ✅ Keep your UI filter options (same as before)
 const industries = [
   "All Industries",
   "Technology",
@@ -125,18 +44,105 @@ const companySizes = [
   "5000+",
 ];
 
+// ---- Types ----
+type CompanyApi = {
+  companyId: number;
+  companyName: string;
+  industry?: string | null;
+  location?: string | null;
+  companySize?: string | null;
+  description?: string | null;
+  verified?: boolean | null;
+  rating?: number | null;
+  openJobs?: number | null;
+};
+
+type CompanyUI = {
+  id: number;
+  name: string;
+  logo: string;
+  industry: string;
+  location: string;
+  size: string;
+  openJobs: number;
+  rating: number;
+  verified: boolean;
+  description: string;
+};
+
+function initials(name: string) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "CO";
+  const a = parts[0]?.[0] ?? "C";
+  const b = parts.length > 1 ? (parts[1]?.[0] ?? "O") : (parts[0]?.[1] ?? "O");
+  return (a + b).toUpperCase();
+}
+
+function toUI(c: CompanyApi): CompanyUI {
+  return {
+    id: c.companyId,
+    name: c.companyName ?? "",
+    logo: initials(c.companyName ?? ""),
+    industry: c.industry ?? "Unknown",
+    location: c.location ?? "—",
+    size: c.companySize ?? "—",
+    openJobs: Number.isFinite(c.openJobs as number)
+      ? (c.openJobs as number)
+      : 0,
+    rating: Number.isFinite(c.rating as number) ? (c.rating as number) : 0,
+    verified: Boolean(c.verified),
+    description: c.description ?? "",
+  };
+}
+
 export default function Companies() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [selectedSize, setSelectedSize] = useState("All Sizes");
 
-  const filteredCompanies = companies.filter((company) => {
-    const matchesSearch = company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      company.description.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesIndustry = selectedIndustry === "All Industries" || company.industry === selectedIndustry;
-    const matchesSize = selectedSize === "All Sizes" || company.size === selectedSize;
-    return matchesSearch && matchesIndustry && matchesSize;
-  });
+  // ✅ data from backend (no dummy)
+  const [companies, setCompanies] = useState<CompanyUI[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const loadCompanies = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        // ✅ IMPORTANT:
+        // Your backend should have a route like GET /companies
+        // that returns an array of companies.
+        const res = await api.get("/companies");
+        const list = Array.isArray(res.data) ? (res.data as CompanyApi[]) : [];
+        setCompanies(list.map(toUI));
+      } catch (e: any) {
+        setError(e?.response?.data?.message || "Failed to load companies");
+        setCompanies([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadCompanies();
+  }, []);
+
+  const filteredCompanies = useMemo(() => {
+    return companies.filter((company) => {
+      const matchesSearch =
+        company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        company.description.toLowerCase().includes(searchQuery.toLowerCase());
+
+      const matchesIndustry =
+        selectedIndustry === "All Industries" ||
+        company.industry === selectedIndustry;
+
+      const matchesSize =
+        selectedSize === "All Sizes" || company.size === selectedSize;
+
+      return matchesSearch && matchesIndustry && matchesSize;
+    });
+  }, [companies, searchQuery, selectedIndustry, selectedSize]);
 
   return (
     <MainLayout>
@@ -165,7 +171,11 @@ export default function Companies() {
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
                 </div>
-                <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
+
+                <Select
+                  value={selectedIndustry}
+                  onValueChange={setSelectedIndustry}
+                >
                   <SelectTrigger className="w-full md:w-48 h-12 bg-background">
                     <SelectValue placeholder="Industry" />
                   </SelectTrigger>
@@ -177,6 +187,7 @@ export default function Companies() {
                     ))}
                   </SelectContent>
                 </Select>
+
                 <Select value={selectedSize} onValueChange={setSelectedSize}>
                   <SelectTrigger className="w-full md:w-48 h-12 bg-background">
                     <SelectValue placeholder="Company Size" />
@@ -200,9 +211,21 @@ export default function Companies() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between mb-8">
             <p className="text-muted-foreground">
-              Showing <span className="font-semibold text-foreground">{filteredCompanies.length}</span> companies
+              Showing{" "}
+              <span className="font-semibold text-foreground">
+                {filteredCompanies.length}
+              </span>{" "}
+              companies
             </p>
           </div>
+
+          {/* Optional (minimal) status text */}
+          {loading && (
+            <p className="text-sm text-muted-foreground mb-6">
+              Loading companies...
+            </p>
+          )}
+          {error && <p className="text-sm text-destructive mb-6">{error}</p>}
 
           {/* Companies Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -225,7 +248,9 @@ export default function Companies() {
                         <CheckCircle className="h-5 w-5 text-success fill-success/20" />
                       )}
                     </div>
-                    <p className="text-sm text-muted-foreground">{company.industry}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {company.industry}
+                    </p>
                   </div>
                 </div>
 
@@ -258,11 +283,13 @@ export default function Companies() {
             ))}
           </div>
 
-          {filteredCompanies.length === 0 && (
+          {!loading && filteredCompanies.length === 0 && (
             <div className="text-center py-16">
               <Building2 className="h-16 w-16 text-muted-foreground/50 mx-auto mb-4" />
               <h3 className="text-xl font-semibold mb-2">No companies found</h3>
-              <p className="text-muted-foreground">Try adjusting your search or filters</p>
+              <p className="text-muted-foreground">
+                Try adjusting your search or filters
+              </p>
             </div>
           )}
         </div>
