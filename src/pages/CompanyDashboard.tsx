@@ -47,49 +47,6 @@ import {
   UserX,
 } from "lucide-react";
 
-const mockJobs = [
-  {
-    id: "1",
-    title: "Senior Frontend Developer",
-    type: "Full-time",
-    location: "San Francisco, CA",
-    salary: "$120k - $160k",
-    applications: 45,
-    status: "active",
-    postedDate: "2024-01-10",
-  },
-  {
-    id: "2",
-    title: "Backend Engineer",
-    type: "Full-time",
-    location: "Remote",
-    salary: "$130k - $170k",
-    applications: 32,
-    status: "active",
-    postedDate: "2024-01-08",
-  },
-  {
-    id: "3",
-    title: "Product Manager",
-    type: "Full-time",
-    location: "New York, NY",
-    salary: "$140k - $180k",
-    applications: 28,
-    status: "paused",
-    postedDate: "2024-01-05",
-  },
-  {
-    id: "4",
-    title: "UX Designer",
-    type: "Contract",
-    location: "Remote",
-    salary: "$80 - $100/hr",
-    applications: 19,
-    status: "closed",
-    postedDate: "2024-01-01",
-  },
-];
-
 const mockApplications = [
   {
     id: "1",
@@ -289,6 +246,9 @@ export default function CompanyDashboard() {
   >(null);
   const [benefitInput, setBenefitInput] = useState("");
 
+  const [jobs, setJobs] = useState<any[]>([]);
+  const [loadingJobs, setLoadingJobs] = useState(false);
+
   const handleSaveProfile = async () => {
     setSavingProfile(true);
     setError(null);
@@ -350,6 +310,17 @@ export default function CompanyDashboard() {
     }));
   };
 
+  const [newJob, setNewJob] = useState({
+    jobTitle: "",
+    jobType: "",
+    location: "",
+    salaryRange: "",
+    jobDescription: "",
+    requirements: "",
+  });
+
+  const [postingJob, setPostingJob] = useState(false);
+
   useEffect(() => {
     const load = async () => {
       setLoadingProfile(true);
@@ -369,6 +340,19 @@ export default function CompanyDashboard() {
     load();
   }, []);
 
+  useEffect(() => {
+    const loadJobs = async () => {
+      setLoadingJobs(true);
+      try {
+        const res = await api.get("/jobs/company/me");
+        setJobs(res.data);
+      } finally {
+        setLoadingJobs(false);
+      }
+    };
+    loadJobs();
+  }, []);
+
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
@@ -382,26 +366,58 @@ export default function CompanyDashboard() {
               Manage your jobs, applications, and company profile
             </p>
           </div>
-          <Dialog open={isAddJobOpen} onOpenChange={setIsAddJobOpen}>
+
+          <Dialog
+            open={isAddJobOpen}
+            onOpenChange={(open) => {
+              setIsAddJobOpen(open);
+              // reset form when closing
+              if (!open) {
+                setNewJob({
+                  jobTitle: "",
+                  jobType: "",
+                  location: "",
+                  salaryRange: "",
+                  jobDescription: "",
+                  requirements: "",
+                });
+              }
+            }}
+          >
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Post New Job
               </Button>
             </DialogTrigger>
+
             <DialogContent className="max-w-2xl">
               <DialogHeader>
                 <DialogTitle>Post a New Job</DialogTitle>
               </DialogHeader>
+
               <div className="space-y-4 py-4">
-                <div className="grid grid-cols-2 gap-4">
+                {/* Row 1 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium">Job Title</label>
-                    <Input placeholder="e.g., Senior Developer" />
+                    <Input
+                      placeholder="e.g., Senior Developer"
+                      value={newJob.jobTitle}
+                      onChange={(e) =>
+                        setNewJob((p) => ({ ...p, jobTitle: e.target.value }))
+                      }
+                    />
                   </div>
+
                   <div>
                     <label className="text-sm font-medium">Job Type</label>
-                    <Select>
+                    <Select
+                      value={newJob.jobType}
+                      onValueChange={(v) =>
+                        setNewJob((p) => ({ ...p, jobType: v }))
+                      }
+                    >
                       <SelectTrigger>
                         <SelectValue placeholder="Select type" />
                       </SelectTrigger>
@@ -414,41 +430,127 @@ export default function CompanyDashboard() {
                     </Select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+
+                {/* Row 2 */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-sm font-medium">Location</label>
-                    <Input placeholder="e.g., San Francisco, CA" />
+                    <Input
+                      placeholder="e.g., San Francisco, CA"
+                      value={newJob.location}
+                      onChange={(e) =>
+                        setNewJob((p) => ({ ...p, location: e.target.value }))
+                      }
+                    />
                   </div>
+
                   <div>
                     <label className="text-sm font-medium">Salary Range</label>
-                    <Input placeholder="e.g., $100k - $150k" />
+                    <Input
+                      placeholder="e.g., $100k - $150k"
+                      value={newJob.salaryRange}
+                      onChange={(e) =>
+                        setNewJob((p) => ({
+                          ...p,
+                          salaryRange: e.target.value,
+                        }))
+                      }
+                    />
                   </div>
                 </div>
+
+                {/* Description */}
                 <div>
                   <label className="text-sm font-medium">Job Description</label>
                   <Textarea
                     placeholder="Describe the role and responsibilities..."
                     rows={4}
+                    value={newJob.jobDescription}
+                    onChange={(e) =>
+                      setNewJob((p) => ({
+                        ...p,
+                        jobDescription: e.target.value,
+                      }))
+                    }
                   />
                 </div>
+
+                {/* Requirements */}
                 <div>
                   <label className="text-sm font-medium">Requirements</label>
                   <Textarea
                     placeholder="List the required skills and qualifications..."
                     rows={3}
+                    value={newJob.requirements}
+                    onChange={(e) =>
+                      setNewJob((p) => ({ ...p, requirements: e.target.value }))
+                    }
                   />
                 </div>
+
+                {/* Actions */}
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setIsAddJobOpen(false)}
+                    onClick={() => {
+                      setIsAddJobOpen(false);
+                    }}
                   >
                     Cancel
                   </Button>
-                  <Button onClick={() => setIsAddJobOpen(false)}>
+
+                  <Button
+                    disabled={
+                      postingJob ||
+                      !newJob.jobTitle.trim() ||
+                      !newJob.jobType.trim() ||
+                      !newJob.location.trim() ||
+                      !newJob.salaryRange.trim() ||
+                      !newJob.jobDescription.trim() ||
+                      !newJob.requirements.trim()
+                    }
+                    onClick={async () => {
+                      setPostingJob(true);
+                      setError(null);
+
+                      try {
+                        // create job
+                        await api.post("/jobs", {
+                          jobTitle: newJob.jobTitle.trim(),
+                          jobType: newJob.jobType.trim(),
+                          location: newJob.location.trim(),
+                          salaryRange: newJob.salaryRange.trim(),
+                          jobDescription: newJob.jobDescription.trim(),
+                          requirements: newJob.requirements.trim(),
+                        });
+
+                        // refresh list (if you use real jobs state)
+                        if (typeof setJobs === "function") {
+                          const res = await api.get("/jobs/company/me");
+                          setJobs(res.data);
+                        }
+
+                        // close (reset happens in onOpenChange)
+                        setIsAddJobOpen(false);
+                      } catch (e: any) {
+                        setError(
+                          e?.response?.data?.message || "Failed to post job",
+                        );
+                      } finally {
+                        setPostingJob(false);
+                      }
+                    }}
+                  >
                     Post Job
                   </Button>
                 </div>
+
+                {/* Optional error display */}
+                {error && (
+                  <p className="text-sm text-destructive border border-destructive/30 rounded-md p-2">
+                    {error}
+                  </p>
+                )}
               </div>
             </DialogContent>
           </Dialog>
@@ -463,7 +565,8 @@ export default function CompanyDashboard() {
                   <Briefcase className="h-6 w-6 text-primary" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">{mockJobs.length}</p>
+                  <p className="text-2xl font-bold">{jobs.length}</p>
+
                   <p className="text-sm text-muted-foreground">Active Jobs</p>
                 </div>
               </div>
@@ -558,47 +661,68 @@ export default function CompanyDashboard() {
                   Add Job
                 </Button>
               </CardHeader>
+
               <CardContent>
                 <div className="space-y-4">
-                  {mockJobs.map((job) => (
-                    <div
-                      key={job.id}
-                      className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors gap-4"
-                    >
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h3 className="font-semibold text-foreground">
-                            {job.title}
-                          </h3>
-                          {getStatusBadge(job.status)}
+                  {loadingJobs ? (
+                    <p className="text-sm text-muted-foreground">
+                      Loading jobs...
+                    </p>
+                  ) : jobs.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No jobs posted yet.
+                    </p>
+                  ) : (
+                    jobs.map((job) => (
+                      <div
+                        key={job.id}
+                        className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors gap-4"
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-1">
+                            <h3 className="font-semibold text-foreground">
+                              {job.jobTitle}
+                            </h3>
+
+                            {/* status not in schema, show default */}
+                            {getStatusBadge("active")}
+                          </div>
+
+                          <p className="text-sm text-muted-foreground">
+                            {job.jobType} • {job.location} • {job.salaryRange}
+                          </p>
+
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Posted:{" "}
+                            {job.jobDate
+                              ? new Date(job.jobDate).toLocaleDateString()
+                              : "N/A"}{" "}
+                            • {job.applications?.length ?? 0} applications
+                          </p>
                         </div>
-                        <p className="text-sm text-muted-foreground">
-                          {job.type} • {job.location} • {job.salary}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Posted: {job.postedDate} • {job.applications}{" "}
-                          applications
-                        </p>
+
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+
+                          <Button variant="outline" size="sm">
+                            <Edit3 className="h-4 w-4 mr-1" />
+                            Edit
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Edit3 className="h-4 w-4 mr-1" />
-                          Edit
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

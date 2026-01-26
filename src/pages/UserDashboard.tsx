@@ -39,6 +39,10 @@ import { api } from "@/lib/api";
 const API_USER_ME = "/users/me";
 const API_USER_UPDATE = "/users/me";
 const API_MY_APPLICATIONS = "/applications/me";
+const API_USER_IMAGE_UPLOAD = "/profile/user/image";
+const API_USER_IMAGE_DELETE = "/profile/user/image";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // =============================
 // Backend Types
@@ -232,6 +236,7 @@ export default function UserDashboard() {
 
   const [profile, setProfile] = useState<UiProfile | null>(null);
   const [editedProfile, setEditedProfile] = useState<UiProfile | null>(null);
+  const [uploadingPic, setUploadingPic] = useState(false);
 
   useEffect(() => {
     if (baseProfile) {
@@ -309,7 +314,7 @@ export default function UserDashboard() {
 
   const apps = applications ?? [];
   const interviewsCount = apps.filter(
-    (a) => normalizeStatus(a.status) === "interview_scheduled"
+    (a) => normalizeStatus(a.status) === "interview_scheduled",
   ).length;
 
   const [newCertification, setNewCertification] = useState("");
@@ -332,9 +337,36 @@ export default function UserDashboard() {
     setEditedProfile({
       ...editedProfile,
       certifications: editedProfile.certifications.filter(
-        (c) => c !== certification
+        (c) => c !== certification,
       ),
     });
+  };
+
+  const uploadProfilePic = async (file: File) => {
+    setUploadingPic(true);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+
+      await api.post(API_USER_IMAGE_UPLOAD, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+
+      // refresh user data so profilePic updates
+      await queryClient.invalidateQueries({ queryKey: ["user-me"] });
+    } finally {
+      setUploadingPic(false);
+    }
+  };
+
+  const deleteProfilePic = async () => {
+    setUploadingPic(true);
+    try {
+      await api.delete(API_USER_IMAGE_DELETE);
+      await queryClient.invalidateQueries({ queryKey: ["user-me"] });
+    } finally {
+      setUploadingPic(false);
+    }
   };
 
   return (
@@ -487,13 +519,64 @@ export default function UserDashboard() {
                 <div className="flex flex-col md:flex-row gap-6">
                   {/* Avatar */}
                   <div className="flex flex-col items-center gap-3">
-                    <div className="h-24 w-24 rounded-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
-                      {(safeProfile.name || "U").charAt(0).toUpperCase()}
+                    <div className="h-24 w-24 rounded-full bg-primary/10 overflow-hidden flex items-center justify-center">
+                      {user?.profilePic ? (
+                        <img
+                          src={`${API_BASE}${user.profilePic}`}
+                          alt="Profile"
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            // fallback if image not accessible
+                            (
+                              e.currentTarget as HTMLImageElement
+                            ).style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="text-3xl font-bold text-primary">
+                          {(safeProfile.name || "U").charAt(0).toUpperCase()}
+                        </div>
+                      )}
                     </div>
+
                     {isEditing && (
-                      <Button variant="outline" size="sm" disabled>
-                        Change Photo
-                      </Button>
+                      <div className="flex flex-col gap-2 items-center">
+                        <label className="w-full">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) uploadProfilePic(file);
+                              e.currentTarget.value = ""; // allow re-upload same file
+                            }}
+                          />
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            disabled={uploadingPic}
+                            asChild
+                          >
+                            <span>
+                              {uploadingPic ? "Uploading..." : "Change Photo"}
+                            </span>
+                          </Button>
+                        </label>
+
+                        {user?.profilePic && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-destructive"
+                            onClick={deleteProfilePic}
+                            disabled={uploadingPic}
+                          >
+                            Remove Photo
+                          </Button>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -651,7 +734,7 @@ export default function UserDashboard() {
                             </button>
                           )}
                         </Badge>
-                      )
+                      ),
                     )}
 
                     {isEditing && (
@@ -711,7 +794,7 @@ export default function UserDashboard() {
                             </button>
                           )}
                         </Badge>
-                      )
+                      ),
                     )}
 
                     {isEditing && (
