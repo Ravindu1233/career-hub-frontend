@@ -317,6 +317,11 @@ export default function CompanyDashboard() {
     salaryRange: "",
     jobDescription: "",
     requirements: "",
+
+    // ✅ NEW
+    deadline: "", // YYYY-MM-DD from input[type="date"]
+    responsibilities: [""], // multiple see UI below
+    requiredSkills: [""], // multiple see UI below
   });
 
   const [postingJob, setPostingJob] = useState(false);
@@ -380,6 +385,10 @@ export default function CompanyDashboard() {
                   salaryRange: "",
                   jobDescription: "",
                   requirements: "",
+
+                  deadline: "",
+                  responsibilities: [""],
+                  requiredSkills: [""],
                 });
               }
             }}
@@ -458,6 +467,16 @@ export default function CompanyDashboard() {
                     />
                   </div>
                 </div>
+                <div>
+                  <label className="text-sm font-medium">Deadline</label>
+                  <Input
+                    type="date"
+                    value={newJob.deadline}
+                    onChange={(e) =>
+                      setNewJob((p) => ({ ...p, deadline: e.target.value }))
+                    }
+                  />
+                </div>
 
                 {/* Description */}
                 <div>
@@ -473,6 +492,114 @@ export default function CompanyDashboard() {
                       }))
                     }
                   />
+                </div>
+                <div>
+                  <label className="text-sm font-medium">
+                    Responsibilities
+                  </label>
+
+                  <div className="space-y-2 mt-2">
+                    {newJob.responsibilities.map((item, idx) => (
+                      <div key={idx} className="flex gap-2">
+                        <Input
+                          placeholder={`Responsibility ${idx + 1}`}
+                          value={item}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setNewJob((p) => {
+                              const next = [...p.responsibilities];
+                              next[idx] = v;
+                              return { ...p, responsibilities: next };
+                            });
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setNewJob((p) => {
+                              const next = p.responsibilities.filter(
+                                (_, i) => i !== idx,
+                              );
+                              return {
+                                ...p,
+                                responsibilities: next.length ? next : [""],
+                              };
+                            });
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2"
+                    onClick={() =>
+                      setNewJob((p) => ({
+                        ...p,
+                        responsibilities: [...p.responsibilities, ""],
+                      }))
+                    }
+                  >
+                    + Add Responsibility
+                  </Button>
+                </div>
+                <div>
+                  <label className="text-sm font-medium">Required Skills</label>
+
+                  <div className="space-y-2 mt-2">
+                    {newJob.requiredSkills.map((item, idx) => (
+                      <div key={idx} className="flex gap-2">
+                        <Input
+                          placeholder={`Skill ${idx + 1} (e.g., React)`}
+                          value={item}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            setNewJob((p) => {
+                              const next = [...p.requiredSkills];
+                              next[idx] = v;
+                              return { ...p, requiredSkills: next };
+                            });
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => {
+                            setNewJob((p) => {
+                              const next = p.requiredSkills.filter(
+                                (_, i) => i !== idx,
+                              );
+                              return {
+                                ...p,
+                                requiredSkills: next.length ? next : [""],
+                              };
+                            });
+                          }}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2"
+                    onClick={() =>
+                      setNewJob((p) => ({
+                        ...p,
+                        requiredSkills: [...p.requiredSkills, ""],
+                      }))
+                    }
+                  >
+                    + Add Skill
+                  </Button>
                 </div>
 
                 {/* Requirements */}
@@ -507,7 +634,11 @@ export default function CompanyDashboard() {
                       !newJob.location.trim() ||
                       !newJob.salaryRange.trim() ||
                       !newJob.jobDescription.trim() ||
-                      !newJob.requirements.trim()
+                      !newJob.requirements.trim() ||
+                      !newJob.deadline.trim() ||
+                      newJob.responsibilities.filter((x) => x.trim()).length ===
+                        0 ||
+                      newJob.requiredSkills.filter((x) => x.trim()).length === 0
                     }
                     onClick={async () => {
                       setPostingJob(true);
@@ -521,7 +652,19 @@ export default function CompanyDashboard() {
                           location: newJob.location.trim(),
                           salaryRange: newJob.salaryRange.trim(),
                           jobDescription: newJob.jobDescription.trim(),
+
                           requirements: newJob.requirements.trim(),
+
+                          // ✅ NEW
+                          deadline: newJob.deadline
+                            ? new Date(newJob.deadline).toISOString()
+                            : undefined,
+                          responsibilities: newJob.responsibilities
+                            .map((x) => x.trim())
+                            .filter(Boolean),
+                          requiredSkills: newJob.requiredSkills
+                            .map((x) => x.trim())
+                            .filter(Boolean),
                         });
 
                         // refresh list (if you use real jobs state)
