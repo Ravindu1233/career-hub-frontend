@@ -38,7 +38,7 @@ import { api } from "@/lib/api";
 // =============================
 const API_USER_ME = "/users/me";
 const API_USER_UPDATE = "/users/me";
-const API_MY_APPLICATIONS = "/applications/me";
+const API_MY_APPLICATIONS = "/applications/my-applications";
 const API_USER_IMAGE_UPLOAD = "/profile/user/image";
 const API_USER_IMAGE_DELETE = "/profile/user/image";
 
