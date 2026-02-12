@@ -73,7 +73,7 @@ export function Navbar() {
 
   // ✅ real auth state
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(
-    !!localStorage.getItem("token")
+    !!localStorage.getItem("token"),
   );
 
   // ✅ keep navbar updated when token changes (login/logout, multi-tab)
@@ -88,6 +88,12 @@ export function Navbar() {
   }, []);
 
   const isActive = (path: string) => location.pathname === path;
+
+  // ✅ Handler to scroll to top when clicking links
+  const handleNavClick = () => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+    setMobileMenuOpen(false);
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
@@ -109,7 +115,11 @@ export function Navbar() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2">
+            <Link
+              to="/"
+              className="flex items-center gap-2"
+              onClick={handleNavClick}
+            >
               <div className="w-10 h-10 rounded-xl gradient-primary flex items-center justify-center">
                 <Briefcase className="h-5 w-5 text-white" />
               </div>
@@ -125,11 +135,12 @@ export function Navbar() {
               <Link
                 key={item.name}
                 to={item.href}
+                onClick={handleNavClick}
                 className={cn(
                   "px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
                   isActive(item.href)
                     ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
               >
                 {item.name}
@@ -166,6 +177,7 @@ export function Navbar() {
                     <DropdownMenuItem asChild>
                       <Link
                         to={dashboardPath}
+                        onClick={handleNavClick}
                         className="flex items-center gap-2"
                       >
                         <LayoutDashboard className="h-4 w-4" />
@@ -177,6 +189,7 @@ export function Navbar() {
                     <DropdownMenuItem asChild>
                       <Link
                         to="/my-applications"
+                        onClick={handleNavClick}
                         className="flex items-center gap-2"
                       >
                         <User className="h-4 w-4" />
@@ -185,7 +198,11 @@ export function Navbar() {
                     </DropdownMenuItem>
 
                     <DropdownMenuItem asChild>
-                      <Link to="/settings" className="flex items-center gap-2">
+                      <Link
+                        to="/settings"
+                        onClick={handleNavClick}
+                        className="flex items-center gap-2"
+                      >
                         <Settings className="h-4 w-4" />
                         Settings
                       </Link>
@@ -206,10 +223,14 @@ export function Navbar() {
             ) : (
               <>
                 <Link to="/login">
-                  <Button variant="ghost">Sign In</Button>
+                  <Button variant="ghost" onClick={handleNavClick}>
+                    Sign In
+                  </Button>
                 </Link>
                 <Link to="/register">
-                  <Button variant="default">Post a Job</Button>
+                  <Button variant="default" onClick={handleNavClick}>
+                    Post a Job
+                  </Button>
                 </Link>
               </>
             )}
@@ -240,13 +261,13 @@ export function Navbar() {
               <Link
                 key={item.name}
                 to={item.href}
+                onClick={handleNavClick}
                 className={cn(
                   "flex items-center gap-3 px-4 py-3 rounded-lg text-base font-medium transition-colors",
                   isActive(item.href)
                     ? "bg-primary/10 text-primary"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted",
                 )}
-                onClick={() => setMobileMenuOpen(false)}
               >
                 {item.icon && <item.icon className="h-5 w-5" />}
                 {item.name}
@@ -256,21 +277,18 @@ export function Navbar() {
             <div className="pt-4 space-y-2">
               {!isLoggedIn ? (
                 <>
-                  <Link to="/login" onClick={() => setMobileMenuOpen(false)}>
+                  <Link to="/login" onClick={handleNavClick}>
                     <Button variant="outline" className="w-full">
                       Sign In
                     </Button>
                   </Link>
-                  <Link to="/register" onClick={() => setMobileMenuOpen(false)}>
+                  <Link to="/register" onClick={handleNavClick}>
                     <Button className="w-full">Post a Job</Button>
                   </Link>
                 </>
               ) : (
                 <>
-                  <Link
-                    to={dashboardPath}
-                    onClick={() => setMobileMenuOpen(false)}
-                  >
+                  <Link to={dashboardPath} onClick={handleNavClick}>
                     <Button variant="outline" className="w-full">
                       Dashboard
                     </Button>

@@ -20,6 +20,8 @@ import NotFound from "./pages/NotFound";
 import CompanyApplications from "./pages/CompanyApplications";
 import UserDashboard from "./pages/UserDashboard";
 import CompanyDashboard from "./pages/CompanyDashboard";
+import ViewJob from "./pages/company/ViewJob";
+import EditJob from "./pages/company/EditJob";
 
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
@@ -66,6 +68,24 @@ const App = () => (
             element={
               <ProtectedRoute allow="COMPANY">
                 <CompanyDashboard />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ Company Job Management Routes */}
+          <Route
+            path="/company/jobs/:id"
+            element={
+              <ProtectedRoute allow="COMPANY">
+                <ViewJob />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/company/jobs/:id/edit"
+            element={
+              <ProtectedRoute allow="COMPANY">
+                <EditJob />
               </ProtectedRoute>
             }
           />

@@ -357,8 +357,8 @@ export default function Jobs() {
                       className="w-full accent-primary"
                     />
                     <div className="flex items-center justify-between text-sm text-muted-foreground">
-                      <span>$0</span>
-                      <span>$300K+</span>
+                      <span>LKR 0</span> {/* Change $ to LKR here */}
+                      <span>LKR 300K+</span> {/* Change $ to LKR here */}
                     </div>
                   </div>
                 </div>

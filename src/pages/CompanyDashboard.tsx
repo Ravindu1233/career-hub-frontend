@@ -182,6 +182,28 @@ type CompanyProfileUI = {
   benefits: string[];
 };
 
+type ApplicationFromAPI = {
+  id: string;
+  jobId: string;
+  userId: number;
+  cvPath: string;
+  coverLetter: string | null;
+  status: string;
+  createdAt: string;
+  job: {
+    id: string;
+    jobTitle: string;
+    jobType: string;
+  };
+  user: {
+    userId: number;
+    firstName: string;
+    lastName: string;
+    email: string;
+    profilePic: string | null;
+  };
+};
+
 function parseBenefits(v?: string | null): string[] {
   if (!v) return [];
   return v
@@ -248,6 +270,9 @@ export default function CompanyDashboard() {
 
   const [jobs, setJobs] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
+
+  const [applications, setApplications] = useState<ApplicationFromAPI[]>([]);
+  const [loadingApplications, setLoadingApplications] = useState(false);
 
   const handleSaveProfile = async () => {
     setSavingProfile(true);
@@ -358,6 +383,21 @@ export default function CompanyDashboard() {
     loadJobs();
   }, []);
 
+  useEffect(() => {
+    const loadApplications = async () => {
+      setLoadingApplications(true);
+      try {
+        const res = await api.get("/applications/company/all");
+        setApplications(res.data);
+      } catch (e: any) {
+        console.error("Failed to load applications:", e);
+      } finally {
+        setLoadingApplications(false);
+      }
+    };
+    loadApplications();
+  }, []);
+
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
@@ -400,7 +440,7 @@ export default function CompanyDashboard() {
               </Button>
             </DialogTrigger>
 
-            <DialogContent className="max-w-2xl">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Post a New Job</DialogTitle>
               </DialogHeader>
@@ -456,7 +496,7 @@ export default function CompanyDashboard() {
                   <div>
                     <label className="text-sm font-medium">Salary Range</label>
                     <Input
-                      placeholder="e.g., $100k - $150k"
+                      placeholder="e.g., LKR 100k - LKR 150k"
                       value={newJob.salaryRange}
                       onChange={(e) =>
                         setNewJob((p) => ({
@@ -722,9 +762,7 @@ export default function CompanyDashboard() {
                   <FileText className="h-6 w-6 text-accent" />
                 </div>
                 <div>
-                  <p className="text-2xl font-bold">
-                    {mockApplications.length}
-                  </p>
+                  <p className="text-2xl font-bold">{applications.length}</p>
                   <p className="text-sm text-muted-foreground">Applications</p>
                 </div>
               </div>
@@ -759,7 +797,7 @@ export default function CompanyDashboard() {
                 <div>
                   <p className="text-2xl font-bold">
                     {
-                      mockApplications.filter((a) => a.status === "shortlisted")
+                      applications.filter((a) => a.status === "shortlisted")
                         .length
                     }
                   </p>
@@ -832,7 +870,8 @@ export default function CompanyDashboard() {
                           </div>
 
                           <p className="text-sm text-muted-foreground">
-                            {job.jobType} • {job.location} • {job.salaryRange}
+                            {job.jobType} • {job.location} • LKR{" "}
+                            {job.salaryRange}
                           </p>
 
                           <p className="text-xs text-muted-foreground mt-1">
@@ -843,22 +882,43 @@ export default function CompanyDashboard() {
                             • {job.applications?.length ?? 0} applications
                           </p>
                         </div>
-
                         <div className="flex items-center gap-2">
-                          <Button variant="outline" size="sm">
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
+                          <Link to={`/company/jobs/${job.id}`}>
+                            <Button variant="outline" size="sm">
+                              <Eye className="h-4 w-4 mr-1" />
+                              View
+                            </Button>
+                          </Link>
 
-                          <Button variant="outline" size="sm">
-                            <Edit3 className="h-4 w-4 mr-1" />
-                            Edit
-                          </Button>
+                          <Link to={`/company/jobs/${job.id}/edit`}>
+                            <Button variant="outline" size="sm">
+                              <Edit3 className="h-4 w-4 mr-1" />
+                              Edit
+                            </Button>
+                          </Link>
 
                           <Button
                             variant="outline"
                             size="sm"
                             className="text-destructive hover:text-destructive"
+                            onClick={async () => {
+                              if (
+                                confirm(
+                                  "Are you sure you want to delete this job?",
+                                )
+                              ) {
+                                try {
+                                  await api.delete(`/jobs/${job.id}`);
+                                  const res = await api.get("/jobs/company/me");
+                                  setJobs(res.data);
+                                } catch (e: any) {
+                                  setError(
+                                    e?.response?.data?.message ||
+                                      "Failed to delete job",
+                                  );
+                                }
+                              }
+                            }}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -879,66 +939,118 @@ export default function CompanyDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {mockApplications.map((application) => (
-                    <div
-                      key={application.id}
-                      className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors gap-4"
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-                          {application.candidateName.charAt(0)}
+                  {loadingApplications ? (
+                    <p className="text-sm text-muted-foreground">
+                      Loading applications...
+                    </p>
+                  ) : applications.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No applications yet.
+                    </p>
+                  ) : (
+                    applications.map((application) => (
+                      <div
+                        key={application.id}
+                        className="flex flex-col md:flex-row md:items-center justify-between p-4 rounded-lg border bg-card hover:bg-muted/50 transition-colors gap-4"
+                      >
+                        <div className="flex items-center gap-4">
+                          <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
+                            {application.user.firstName.charAt(0)}
+                          </div>
+                          <div>
+                            <h3 className="font-semibold text-foreground">
+                              {application.user.firstName}{" "}
+                              {application.user.lastName}
+                            </h3>
+                            <p className="text-sm text-muted-foreground">
+                              {application.job.jobTitle}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Applied:{" "}
+                              {new Date(
+                                application.createdAt,
+                              ).toLocaleDateString()}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-foreground">
-                            {application.candidateName}
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            {application.jobTitle}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {application.experience} experience • Applied:{" "}
-                            {application.appliedDate}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          {getStatusBadge(application.status)}
+                          <div className="flex gap-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              title="View Resume"
+                              onClick={() => {
+                                // Download CV
+                                window.open(
+                                  `${import.meta.env.VITE_API_URL}/${application.cvPath}`,
+                                  "_blank",
+                                );
+                              }}
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-accent"
+                              title="Shortlist"
+                              onClick={async () => {
+                                try {
+                                  await api.patch(
+                                    `/applications/${application.id}/status`,
+                                    {
+                                      status: "shortlisted",
+                                    },
+                                  );
+                                  // Refresh applications
+                                  const res = await api.get(
+                                    "/applications/company/all",
+                                  );
+                                  setApplications(res.data);
+                                } catch (e: any) {
+                                  setError(
+                                    e?.response?.data?.message ||
+                                      "Failed to update status",
+                                  );
+                                }
+                              }}
+                            >
+                              <UserCheck className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-destructive"
+                              title="Reject"
+                              onClick={async () => {
+                                try {
+                                  await api.patch(
+                                    `/applications/${application.id}/status`,
+                                    {
+                                      status: "rejected",
+                                    },
+                                  );
+                                  // Refresh applications
+                                  const res = await api.get(
+                                    "/applications/company/all",
+                                  );
+                                  setApplications(res.data);
+                                } catch (e: any) {
+                                  setError(
+                                    e?.response?.data?.message ||
+                                      "Failed to update status",
+                                  );
+                                }
+                              }}
+                            >
+                              <UserX className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        {getStatusBadge(application.status)}
-                        <div className="flex gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            title="View Resume"
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            title="Schedule Interview"
-                            onClick={() => openScheduleInterview(application)}
-                          >
-                            <Calendar className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-accent"
-                            title="Shortlist"
-                          >
-                            <UserCheck className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="text-destructive"
-                            title="Reject"
-                          >
-                            <UserX className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
                 <div className="mt-6 text-center">
                   <Link to="/company/applications">

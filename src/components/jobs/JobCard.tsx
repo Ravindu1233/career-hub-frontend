@@ -36,7 +36,11 @@ export function JobCard({ job }: JobCardProps) {
         {/* Company logo */}
         <div className="h-14 w-14 rounded-xl bg-muted flex items-center justify-center flex-shrink-0 overflow-hidden">
           {job.companyLogo ? (
-            <img src={job.companyLogo} alt={job.company} className="h-full w-full object-cover" />
+            <img
+              src={job.companyLogo}
+              alt={job.company}
+              className="h-full w-full object-cover"
+            />
           ) : (
             <Building2 className="h-7 w-7 text-muted-foreground" />
           )}
@@ -94,9 +98,12 @@ export function JobCard({ job }: JobCardProps) {
       {/* Footer */}
       <div className="flex items-center justify-between pt-4 border-t border-border/50">
         <div className="flex items-center gap-1.5">
-          <DollarSign className="h-5 w-5 text-primary" />
-          <span className="text-lg font-bold text-foreground">{job.salary}</span>
+          <span className="text-primary">LKR</span>
+          <span className="text-lg font-bold text-foreground">
+            {job.salary}
+          </span>
         </div>
+
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock className="h-3.5 w-3.5" />
           <span>{job.postedAt}</span>

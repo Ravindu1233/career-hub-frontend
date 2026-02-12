@@ -1,12 +1,15 @@
 import { ReactNode } from "react";
 import { Navbar } from "./Navbar";
 import { Footer } from "./Footer";
+import { useScrollRestoration } from "@/hooks/useScrollRestoration";
 
 interface MainLayoutProps {
   children: ReactNode;
 }
 
 export function MainLayout({ children }: MainLayoutProps) {
+  useScrollRestoration();
+
   return (
     <div className="min-h-screen flex flex-col">
       <Navbar />
