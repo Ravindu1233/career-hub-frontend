@@ -34,6 +34,14 @@ import CompanyProfile from "./pages/company/CompanyProfile";
 import ViewJob from "./pages/company/ViewJob";
 import EditJob from "./pages/company/EditJob";
 
+// ✅ Import admin pages
+import AdminOverview from "./pages/admin/AdminOverview";
+import AdminUsers from "./pages/admin/AdminUsers";
+import AdminCompanies from "./pages/admin/AdminCompanies";
+import AdminJobs from "./pages/admin/AdminJobs";
+import AdminInstitutions from "./pages/admin/AdminInstitutions";
+import AdminSettings from "./pages/admin/AdminSettings";
+
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
@@ -62,7 +70,7 @@ const App = () => (
           {/* Legacy route - keeping for backward compatibility */}
           <Route path="/my-applications" element={<MyApplications />} />
 
-          {/* ✅ Protected User Routes - New Separated Pages */}
+          {/* ✅ Protected User Routes */}
           <Route
             path="/user/dashboard"
             element={
@@ -158,6 +166,56 @@ const App = () => (
             element={
               <ProtectedRoute allow="COMPANY">
                 <EditJob />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ Protected Admin Routes */}
+          <Route
+            path="/admin/dashboard"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <AdminOverview />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/users"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <AdminUsers />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/companies"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <AdminCompanies />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/jobs"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <AdminJobs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/institutions"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <AdminInstitutions />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/settings"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <AdminSettings />
               </ProtectedRoute>
             }
           />
