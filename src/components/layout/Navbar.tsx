@@ -188,7 +188,7 @@ export function Navbar() {
                     {/* Keep your existing items (optional) */}
                     <DropdownMenuItem asChild>
                       <Link
-                        to="/my-applications"
+                        to="/company/applications"
                         onClick={handleNavClick}
                         className="flex items-center gap-2"
                       >

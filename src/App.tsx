@@ -17,9 +17,20 @@ import MyApplications from "./pages/MyApplications";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
-import CompanyApplications from "./pages/CompanyApplications";
-import UserDashboard from "./pages/UserDashboard";
-import CompanyDashboard from "./pages/CompanyDashboard";
+
+// ✅ Import separated user pages
+import UserDashboard from "./pages/user/UserDashboard";
+import UserProfile from "./pages/user/UserProfile";
+import UserApplications from "./pages/user/MyApplications";
+import SavedJobs from "./pages/user/SavedJobs";
+import FollowedCompanies from "./pages/user/FollowedCompanies";
+
+// ✅ Import separated company pages
+import CompanyDashboard from "./pages/company/CompanyDashboard";
+import CompanyJobs from "./pages/company/CompanyJobs";
+import CompanyApplications from "./pages/company/CompanyApplications";
+import CompanyInterviews from "./pages/company/CompanyInterviews";
+import CompanyProfile from "./pages/company/CompanyProfile";
 import ViewJob from "./pages/company/ViewJob";
 import EditJob from "./pages/company/EditJob";
 
@@ -47,14 +58,11 @@ const App = () => (
           <Route path="/institutions/:id" element={<InstitutionDetails />} />
 
           <Route path="/guidance" element={<CareerGuidance />} />
+
+          {/* Legacy route - keeping for backward compatibility */}
           <Route path="/my-applications" element={<MyApplications />} />
 
-          <Route
-            path="/company/applications"
-            element={<CompanyApplications />}
-          />
-
-          {/* ✅ Protected Dashboards */}
+          {/* ✅ Protected User Routes - New Separated Pages */}
           <Route
             path="/user/dashboard"
             element={
@@ -64,6 +72,40 @@ const App = () => (
             }
           />
           <Route
+            path="/user/profile"
+            element={
+              <ProtectedRoute allow="USER">
+                <UserProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/applications"
+            element={
+              <ProtectedRoute allow="USER">
+                <UserApplications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/saved-jobs"
+            element={
+              <ProtectedRoute allow="USER">
+                <SavedJobs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/followed-companies"
+            element={
+              <ProtectedRoute allow="USER">
+                <FollowedCompanies />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* ✅ Protected Company Routes */}
+          <Route
             path="/company/dashboard"
             element={
               <ProtectedRoute allow="COMPANY">
@@ -71,8 +113,38 @@ const App = () => (
               </ProtectedRoute>
             }
           />
-
-          {/* ✅ Company Job Management Routes */}
+          <Route
+            path="/company/jobs"
+            element={
+              <ProtectedRoute allow="COMPANY">
+                <CompanyJobs />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/company/applications"
+            element={
+              <ProtectedRoute allow="COMPANY">
+                <CompanyApplications />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/company/interviews"
+            element={
+              <ProtectedRoute allow="COMPANY">
+                <CompanyInterviews />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/company/profile"
+            element={
+              <ProtectedRoute allow="COMPANY">
+                <CompanyProfile />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/company/jobs/:id"
             element={
