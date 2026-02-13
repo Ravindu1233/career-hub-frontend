@@ -10,18 +10,28 @@ import {
   XCircle,
   Calendar,
   ExternalLink,
-  Filter,
   Search,
+  Video,
+  Phone,
+  MapPin as LocationIcon,
+  Eye,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
 import { Input } from "@/components/ui/input";
 import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // =============================
 // API Endpoints
 // =============================
 const API_MY_APPLICATIONS = "/applications/my-applications";
+const API_MY_INTERVIEWS = "/interviews/my-interviews";
 
 // =============================
 // Backend Types
@@ -31,6 +41,7 @@ type BackendCompany = {
   companyName: string;
   email: string;
   profilePic?: string | null;
+  phone?: string | null;
 };
 
 type BackendJob = {
@@ -45,6 +56,27 @@ type BackendApplication = {
   status: string;
   createdAt: string;
   job?: BackendJob | null;
+};
+
+type Interview = {
+  id: string;
+  interviewDate: string;
+  interviewType: string;
+  status: string;
+  notes?: string | null;
+  meetingLink?: string | null;
+  application: {
+    id: string;
+    job: {
+      id: string;
+      jobTitle: string;
+      company: {
+        companyName: string;
+        email: string;
+        phone?: string | null;
+      };
+    };
+  };
 };
 
 // =============================
@@ -100,12 +132,35 @@ function formatDate(iso?: string) {
   return d.toLocaleDateString();
 }
 
+function formatDateTime(iso?: string) {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  return d.toLocaleString();
+}
+
+const getInterviewIcon = (type: string) => {
+  switch (type.toLowerCase()) {
+    case "video":
+      return Video;
+    case "phone":
+      return Phone;
+    case "in-person":
+      return LocationIcon;
+    default:
+      return Calendar;
+  }
+};
+
 // =============================
 // Main Component
 // =============================
 export default function MyApplications() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [selectedInterview, setSelectedInterview] = useState<Interview | null>(
+    null,
+  );
 
   // Fetch applications
   const {
@@ -120,7 +175,17 @@ export default function MyApplications() {
     },
   });
 
+  // Fetch interviews
+  const { data: interviews } = useQuery({
+    queryKey: ["my-interviews"],
+    queryFn: async () => {
+      const res = await api.get(API_MY_INTERVIEWS);
+      return (res.data ?? []) as Interview[];
+    },
+  });
+
   const apps = applications ?? [];
+  const interviewsList = interviews ?? [];
 
   // Filter applications
   const filteredApps = apps.filter((app) => {
@@ -136,17 +201,22 @@ export default function MyApplications() {
     return matchesSearch && matchesStatus;
   });
 
-  // Stats
+  // Stats - Updated to show Total, Pending, Interviews
   const stats = {
     total: apps.length,
-    underReview: apps.filter((a) => normalizeStatus(a.status) === "under_review")
-      .length,
+    pending: apps.filter(
+      (a) =>
+        normalizeStatus(a.status) === "under_review" ||
+        normalizeStatus(a.status) === "interview_scheduled",
+    ).length,
     interviews: apps.filter(
       (a) => normalizeStatus(a.status) === "interview_scheduled",
     ).length,
-    offered: apps.filter((a) => normalizeStatus(a.status) === "offered").length,
-    rejected: apps.filter((a) => normalizeStatus(a.status) === "rejected")
-      .length,
+  };
+
+  // Get interview for application
+  const getInterviewForApplication = (applicationId: string) => {
+    return interviewsList.find((i) => i.application.id === applicationId);
   };
 
   return (
@@ -154,7 +224,9 @@ export default function MyApplications() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">My Applications</h1>
+          <h1 className="text-3xl font-bold text-foreground">
+            My Applications
+          </h1>
           <p className="text-muted-foreground mt-1">
             Track and manage all your job applications
           </p>
@@ -169,49 +241,46 @@ export default function MyApplications() {
           )}
         </div>
 
-        {/* Stats Overview */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        {/* Stats Overview - Updated to 3 cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           <Card>
             <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-sm text-muted-foreground">Total</p>
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <FileText className="h-6 w-6 text-primary" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.total}</p>
+                  <p className="text-sm text-muted-foreground">Total</p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-2xl font-bold">{stats.underReview}</p>
-                <p className="text-sm text-muted-foreground">Under Review</p>
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-warning/10 flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-warning" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.pending}</p>
+                  <p className="text-sm text-muted-foreground">Pending</p>
+                </div>
               </div>
             </CardContent>
           </Card>
 
           <Card>
             <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-2xl font-bold">{stats.interviews}</p>
-                <p className="text-sm text-muted-foreground">Interviews</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-2xl font-bold">{stats.offered}</p>
-                <p className="text-sm text-muted-foreground">Offers</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="text-center">
-                <p className="text-2xl font-bold">{stats.rejected}</p>
-                <p className="text-sm text-muted-foreground">Rejected</p>
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-accent" />
+                </div>
+                <div>
+                  <p className="text-2xl font-bold">{stats.interviews}</p>
+                  <p className="text-sm text-muted-foreground">Interviews</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -231,7 +300,7 @@ export default function MyApplications() {
                 />
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <Button
                   variant={statusFilter === "all" ? "default" : "outline"}
                   size="sm"
@@ -277,9 +346,7 @@ export default function MyApplications() {
         {/* Applications List */}
         <Card>
           <CardHeader>
-            <CardTitle>
-              Applications ({filteredApps.length})
-            </CardTitle>
+            <CardTitle>Applications ({filteredApps.length})</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -306,6 +373,7 @@ export default function MyApplications() {
                   const location = a.job?.location ?? "-";
                   const status = normalizeStatus(a.status);
                   const appliedDate = formatDate(a.createdAt);
+                  const interview = getInterviewForApplication(a.id);
 
                   const companyLogoLetter = (companyName || "C")
                     .charAt(0)
@@ -336,6 +404,17 @@ export default function MyApplications() {
                       <div className="flex items-center gap-3">
                         {getStatusBadge(status)}
 
+                        {interview && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedInterview(interview)}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Interview
+                          </Button>
+                        )}
+
                         {a.job?.id ? (
                           <Link to={`/jobs/${a.job.id}`}>
                             <Button variant="outline" size="sm">
@@ -355,6 +434,141 @@ export default function MyApplications() {
             </div>
           </CardContent>
         </Card>
+
+        {/* Interview Details Modal */}
+        <Dialog
+          open={selectedInterview !== null}
+          onOpenChange={() => setSelectedInterview(null)}
+        >
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Interview Details</DialogTitle>
+            </DialogHeader>
+
+            {selectedInterview && (
+              <div className="space-y-6">
+                {/* Job Info */}
+                <div>
+                  <h3 className="font-semibold text-lg mb-2">
+                    {selectedInterview.application.job.jobTitle}
+                  </h3>
+                  <p className="text-muted-foreground">
+                    {selectedInterview.application.job.company.companyName}
+                  </p>
+                </div>
+
+                {/* Interview Details */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Interview Date & Time
+                    </label>
+                    <div className="flex items-center gap-2 mt-1">
+                      <Calendar className="h-4 w-4 text-primary" />
+                      <p className="text-foreground">
+                        {formatDateTime(selectedInterview.interviewDate)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Interview Type
+                    </label>
+                    <div className="flex items-center gap-2 mt-1">
+                      {(() => {
+                        const Icon = getInterviewIcon(
+                          selectedInterview.interviewType,
+                        );
+                        return <Icon className="h-4 w-4 text-primary" />;
+                      })()}
+                      <p className="text-foreground capitalize">
+                        {selectedInterview.interviewType}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground">
+                      Status
+                    </label>
+                    <p className="text-foreground mt-1">
+                      <Badge
+                        variant={
+                          selectedInterview.status === "SCHEDULED"
+                            ? "default"
+                            : selectedInterview.status === "COMPLETED"
+                              ? "secondary"
+                              : "destructive"
+                        }
+                      >
+                        {selectedInterview.status}
+                      </Badge>
+                    </p>
+                  </div>
+
+                  {selectedInterview.meetingLink && (
+                    <div>
+                      <label className="text-sm font-medium text-muted-foreground">
+                        Meeting Link
+                      </label>
+                      <a
+                        href={selectedInterview.meetingLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline flex items-center gap-1 mt-1"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                        Join Meeting
+                      </a>
+                    </div>
+                  )}
+                </div>
+
+                {/* Company Contact */}
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground block mb-2">
+                    Company Contact
+                  </label>
+                  <div className="space-y-1">
+                    <p className="text-sm">
+                      Email:{" "}
+                      <a
+                        href={`mailto:${selectedInterview.application.job.company.email}`}
+                        className="text-primary hover:underline"
+                      >
+                        {selectedInterview.application.job.company.email}
+                      </a>
+                    </p>
+                    {selectedInterview.application.job.company.phone && (
+                      <p className="text-sm">
+                        Phone:{" "}
+                        <a
+                          href={`tel:${selectedInterview.application.job.company.phone}`}
+                          className="text-primary hover:underline"
+                        >
+                          {selectedInterview.application.job.company.phone}
+                        </a>
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Notes */}
+                {selectedInterview.notes && (
+                  <div>
+                    <label className="text-sm font-medium text-muted-foreground block mb-2">
+                      Notes
+                    </label>
+                    <p className="text-sm text-foreground bg-muted p-3 rounded-lg">
+                      {selectedInterview.notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </MainLayout>
   );

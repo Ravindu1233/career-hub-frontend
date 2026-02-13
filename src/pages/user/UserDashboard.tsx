@@ -7,7 +7,6 @@ import {
   Briefcase,
   Building2,
   BookmarkCheck,
-  Calendar,
   FileText,
   ArrowRight,
   Bell,
@@ -86,9 +85,6 @@ export default function UserDashboard() {
   });
 
   const apps = applications ?? [];
-  const interviewsCount = apps.filter(
-    (a) => normalizeStatus(a.status) === "interview_scheduled",
-  ).length;
 
   const userName =
     `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "User";
@@ -125,7 +121,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Stats Overview */}
+        {/* Stats Overview - Now 4 cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Link to="/user/profile" className="block">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
@@ -161,22 +157,6 @@ export default function UserDashboard() {
             </Card>
           </Link>
 
-          <Link to="/user/applications" className="block">
-            <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-accent/10 flex items-center justify-center">
-                    <Calendar className="h-6 w-6 text-accent" />
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{interviewsCount}</p>
-                    <p className="text-sm text-muted-foreground">Interviews</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </Link>
-
           <Link to="/user/saved-jobs" className="block">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
               <CardContent className="pt-6">
@@ -187,6 +167,22 @@ export default function UserDashboard() {
                   <div>
                     <p className="text-2xl font-bold">0</p>
                     <p className="text-sm text-muted-foreground">Saved Jobs</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link to="/user/followed-companies" className="block">
+            <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-info/10 flex items-center justify-center">
+                    <Building2 className="h-6 w-6 text-info" />
+                  </div>
+                  <div>
+                    <p className="text-2xl font-bold">0</p>
+                    <p className="text-sm text-muted-foreground">Companies</p>
                   </div>
                 </div>
               </CardContent>
