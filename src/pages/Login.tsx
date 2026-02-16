@@ -12,9 +12,10 @@ import {
 } from "lucide-react";
 import { api } from "@/lib/api";
 
-// ✅ CHANGE THESE TWO IF YOUR ROUTES ARE DIFFERENT
+// ✅ CHANGE THESE IF YOUR ROUTES ARE DIFFERENT
 const USER_DASHBOARD_PATH = "/user/dashboard";
 const COMPANY_DASHBOARD_PATH = "/company/dashboard";
+const ADMIN_DASHBOARD_PATH = "/admin/dashboard";
 
 function getErrorMessage(err: any): string {
   const msg = err?.response?.data?.message;
@@ -64,24 +65,50 @@ export default function Login() {
         // If error is NOT 401/404, show it (validation, server error etc.)
         if (!isNotFoundOrUnauthorized(err)) {
           setError(getErrorMessage(err));
+          setIsLoading(false);
           return;
         }
         // else try company login
       }
 
       // -------- 2) Try COMPANY login --------
-      const res2 = await api.post("/auth/company/login", { email, password });
+      try {
+        const res2 = await api.post("/auth/company/login", { email, password });
 
-      const token2 = res2?.data?.token;
-      if (token2) localStorage.setItem("token", token2);
+        const token2 = res2?.data?.token;
+        if (token2) localStorage.setItem("token", token2);
 
-      localStorage.setItem("authType", "COMPANY");
+        localStorage.setItem("authType", "COMPANY");
 
-      // optional store company if returned
-      if (res2?.data?.company)
-        localStorage.setItem("company", JSON.stringify(res2.data.company));
+        // optional store company if returned
+        if (res2?.data?.company)
+          localStorage.setItem("company", JSON.stringify(res2.data.company));
 
-      navigate(COMPANY_DASHBOARD_PATH);
+        navigate(COMPANY_DASHBOARD_PATH);
+        return;
+      } catch (err: any) {
+        // If error is NOT 401/404, show it
+        if (!isNotFoundOrUnauthorized(err)) {
+          setError(getErrorMessage(err));
+          setIsLoading(false);
+          return;
+        }
+        // else try admin login
+      }
+
+      // -------- 3) Try ADMIN login --------
+      const res3 = await api.post("/auth/admin/login", { email, password });
+
+      const token3 = res3?.data?.token;
+      if (token3) localStorage.setItem("token", token3);
+
+      localStorage.setItem("authType", "ADMIN");
+
+      // optional store admin if returned
+      if (res3?.data?.admin)
+        localStorage.setItem("admin", JSON.stringify(res3.data.admin));
+
+      navigate(ADMIN_DASHBOARD_PATH);
     } catch (err: any) {
       setError(getErrorMessage(err));
     } finally {
