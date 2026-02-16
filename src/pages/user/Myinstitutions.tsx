@@ -1,0 +1,251 @@
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { MainLayout } from "@/components/layout/MainLayout";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  GraduationCap,
+  Plus,
+  Edit3,
+  Trash2,
+  BookOpen,
+  MapPin,
+  ArrowLeft,
+  Eye,
+} from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+
+// =============================
+// API Endpoints
+// =============================
+const API_MY_INSTITUTIONS = "/institutions/my-institutions";
+const API_DELETE_INSTITUTION = (id: string) => `/institutions/${id}`;
+
+// =============================
+// Types
+// =============================
+interface Institution {
+  id: string;
+  name: string;
+  logo?: string | null;
+  location?: string | null;
+  email: string;
+  phone?: string | null;
+  website?: string | null;
+  description?: string | null;
+  founded?: string | null;
+  students?: string | null;
+  createdAt: string;
+  courses?: any[];
+}
+
+export default function MyInstitutions() {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  // Fetch institutions
+  const {
+    data: institutions = [],
+    isLoading,
+    isError,
+  } = useQuery({
+    queryKey: ["my-institutions"],
+    queryFn: async () => {
+      const res = await api.get(API_MY_INSTITUTIONS);
+      return (res.data ?? []) as Institution[];
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await api.delete(API_DELETE_INSTITUTION(id));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["my-institutions"] });
+      toast({
+        title: "Institution deleted",
+        description: "Institution has been removed successfully.",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Failed to delete",
+        description:
+          error?.response?.data?.message ||
+          "An error occurred. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDelete = (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+      deleteMutation.mutate(id);
+    }
+  };
+
+  return (
+    <MainLayout>
+      <div className="container mx-auto px-4 py-8">
+        <Button
+          variant="ghost"
+          onClick={() => navigate("/user/dashboard")}
+          className="gap-2 mb-4"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Button>
+
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">
+              My Institutions
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Manage your educational institutions and their courses
+            </p>
+          </div>
+          <Link to="/user/institutions/add">
+            <Button className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add Institution
+            </Button>
+          </Link>
+        </div>
+
+        {isLoading ? (
+          <Card>
+            <CardContent className="py-16 text-center">
+              <p className="text-muted-foreground">Loading institutions...</p>
+            </CardContent>
+          </Card>
+        ) : isError ? (
+          <Card>
+            <CardContent className="py-16 text-center">
+              <p className="text-destructive mb-4">
+                Failed to load institutions. Please try again.
+              </p>
+              <Button
+                variant="outline"
+                onClick={() =>
+                  queryClient.invalidateQueries({
+                    queryKey: ["my-institutions"],
+                  })
+                }
+              >
+                Retry
+              </Button>
+            </CardContent>
+          </Card>
+        ) : institutions.length === 0 ? (
+          <Card>
+            <CardContent className="py-16 text-center">
+              <GraduationCap className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+              <h3 className="text-xl font-semibold text-foreground mb-2">
+                No institutions yet
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                Start by adding your first educational institution
+              </p>
+              <Link to="/user/institutions/add">
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  Add Institution
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {institutions.map((inst) => {
+              const coursesCount = inst.courses?.length || 0;
+              return (
+                <Card
+                  key={inst.id}
+                  className="hover:shadow-md transition-shadow"
+                >
+                  <CardContent className="p-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-xl font-bold text-primary">
+                          {inst.logo || inst.name.charAt(0).toUpperCase()}
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-semibold text-foreground">
+                            {inst.name}
+                          </h3>
+                          <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-muted-foreground">
+                            {inst.location && (
+                              <>
+                                <span className="flex items-center gap-1">
+                                  <MapPin className="h-3.5 w-3.5" />
+                                  {inst.location}
+                                </span>
+                                <span>•</span>
+                              </>
+                            )}
+                            <span className="flex items-center gap-1">
+                              <BookOpen className="h-3.5 w-3.5" />
+                              {coursesCount}{" "}
+                              {coursesCount === 1 ? "course" : "courses"}
+                            </span>
+                            {inst.students && (
+                              <>
+                                <span>•</span>
+                                <span>{inst.students} students</span>
+                              </>
+                            )}
+                          </div>
+                          {inst.description && (
+                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                              {inst.description}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Link to={`/user/institutions/${inst.id}/view`}>
+                          <Button variant="outline" size="sm" className="gap-1">
+                            <Eye className="h-4 w-4" />
+                            View
+                          </Button>
+                        </Link>
+                        <Link to={`/user/institutions/${inst.id}/edit`}>
+                          <Button variant="outline" size="sm" className="gap-1">
+                            <Edit3 className="h-4 w-4" />
+                            Edit
+                          </Button>
+                        </Link>
+                        <Link to={`/user/institutions/${inst.id}/courses`}>
+                          <Button variant="outline" size="sm" className="gap-1">
+                            <BookOpen className="h-4 w-4" />
+                            Courses
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1 text-destructive hover:text-destructive"
+                          onClick={() => handleDelete(inst.id, inst.name)}
+                          disabled={deleteMutation.isPending}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </MainLayout>
+  );
+}

@@ -23,7 +23,14 @@ import UserDashboard from "./pages/user/UserDashboard";
 import UserProfile from "./pages/user/UserProfile";
 import UserApplications from "./pages/user/MyApplications";
 import SavedJobs from "./pages/user/SavedJobs";
-import FollowedCompanies from "./pages/user/FollowedCompanies";
+import MyInstitutions from "./pages/user/Myinstitutions";
+import AddInstitution from "./pages/user/AddInstitution";
+import EditInstitution from "./pages/user/EditInstitution";
+import ManageCourses from "./pages/user/InstitutionCourses";
+import ViewInstitution from "./pages/user/ViewInstitution";
+import ViewCourse from "./pages/user/ViewCourse";
+import AddCourse from "./pages/user/AddCourse";
+import EditCourse from "./pages/user/EditCourse";
 
 // ✅ Import separated company pages
 import CompanyDashboard from "./pages/company/CompanyDashboard";
@@ -104,10 +111,66 @@ const App = () => (
             }
           />
           <Route
-            path="/user/followed-companies"
+            path="/user/institutions"
             element={
               <ProtectedRoute allow="USER">
-                <FollowedCompanies />
+                <MyInstitutions />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/institutions/add"
+            element={
+              <ProtectedRoute allow="USER">
+                <AddInstitution />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/institutions/:id/view"
+            element={
+              <ProtectedRoute allow="USER">
+                <ViewInstitution />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/institutions/:id/edit"
+            element={
+              <ProtectedRoute allow="USER">
+                <EditInstitution />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/institutions/:id/courses"
+            element={
+              <ProtectedRoute allow="USER">
+                <ManageCourses />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/institutions/:id/courses/add"
+            element={
+              <ProtectedRoute allow="USER">
+                <AddCourse />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/institutions/:id/courses/:courseId/view"
+            element={
+              <ProtectedRoute allow="USER">
+                <ViewCourse />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/user/institutions/:id/courses/:courseId/edit"
+            element={
+              <ProtectedRoute allow="USER">
+                <EditCourse />
               </ProtectedRoute>
             }
           />

@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   User,
   Briefcase,
-  Building2,
+  GraduationCap,
   BookmarkCheck,
   FileText,
   ArrowRight,
@@ -21,6 +21,7 @@ import { api } from "@/lib/api";
 // =============================
 const API_USER_ME = "/users/me";
 const API_MY_APPLICATIONS = "/applications/my-applications";
+const API_MY_INSTITUTIONS = "/institutions/my-institutions";
 
 // =============================
 // Backend Types
@@ -37,6 +38,13 @@ type BackendApplication = {
   id: string;
   status: string;
   createdAt: string;
+};
+
+type BackendInstitution = {
+  id: string;
+  name: string;
+  location?: string | null;
+  courses?: any[];
 };
 
 // =============================
@@ -84,7 +92,21 @@ export default function UserDashboard() {
     },
   });
 
+  // Fetch institutions
+  const {
+    data: institutions,
+    isLoading: institutionsLoading,
+    isError: institutionsError,
+  } = useQuery({
+    queryKey: ["my-institutions"],
+    queryFn: async () => {
+      const res = await api.get(API_MY_INSTITUTIONS);
+      return (res.data ?? []) as BackendInstitution[];
+    },
+  });
+
   const apps = applications ?? [];
+  const insts = institutions ?? [];
 
   const userName =
     `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "User";
@@ -102,10 +124,10 @@ export default function UserDashboard() {
               Here's what's happening with your job search
             </p>
 
-            {(userLoading || appsLoading) && (
+            {(userLoading || appsLoading || institutionsLoading) && (
               <p className="text-xs text-muted-foreground mt-2">Loading...</p>
             )}
-            {(userError || appsError) && (
+            {(userError || appsError || institutionsError) && (
               <p className="text-xs text-destructive mt-2">
                 Failed to load dashboard data.
               </p>
@@ -121,7 +143,7 @@ export default function UserDashboard() {
           </div>
         </div>
 
-        {/* Stats Overview - Now 4 cards */}
+        {/* Stats Overview - 4 cards */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           <Link to="/user/profile" className="block">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
@@ -173,16 +195,18 @@ export default function UserDashboard() {
             </Card>
           </Link>
 
-          <Link to="/user/followed-companies" className="block">
+          <Link to="/user/institutions" className="block">
             <Card className="hover:shadow-lg transition-shadow cursor-pointer h-full">
               <CardContent className="pt-6">
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 rounded-xl bg-info/10 flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-info" />
+                    <GraduationCap className="h-6 w-6 text-info" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">0</p>
-                    <p className="text-sm text-muted-foreground">Companies</p>
+                    <p className="text-2xl font-bold">{insts.length}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Institutions
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -321,20 +345,20 @@ export default function UserDashboard() {
             </Card>
           </Link>
 
-          <Link to="/user/followed-companies" className="block">
+          <Link to="/user/institutions" className="block">
             <Card className="hover:shadow-lg transition-shadow h-full">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Building2 className="h-5 w-5" />
-                  Followed Companies
+                  <GraduationCap className="h-5 w-5" />
+                  My Institutions
                 </CardTitle>
               </CardHeader>
               <CardContent>
                 <p className="text-muted-foreground mb-4">
-                  Stay updated with companies you're interested in
+                  Manage your educational institutions and courses
                 </p>
                 <Button variant="outline" className="w-full">
-                  View Companies
+                  View Institutions
                   <ArrowRight className="h-4 w-4 ml-2" />
                 </Button>
               </CardContent>
