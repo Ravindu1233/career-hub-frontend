@@ -21,6 +21,7 @@ import {
   LogOut,
   LayoutDashboard,
   ChevronDown,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +34,8 @@ const navigation = [
 ];
 
 function getDisplayName() {
-  const authType = localStorage.getItem("authType"); // "USER" | "COMPANY"
+  const authType = localStorage.getItem("authType");
+
   if (authType === "USER") {
     const raw = localStorage.getItem("user");
     if (!raw) return "User";
@@ -58,12 +60,27 @@ function getDisplayName() {
     }
   }
 
+  if (authType === "ADMIN") {
+    const raw = localStorage.getItem("admin");
+    if (!raw) return "Admin";
+    try {
+      const a = JSON.parse(raw);
+      return a?.firstName
+        ? `${a.firstName}${a.lastName ? " " + a.lastName : ""}`
+        : a?.email || "Admin";
+    } catch {
+      return "Admin";
+    }
+  }
+
   return "Account";
 }
 
 function getDashboardPath() {
   const authType = localStorage.getItem("authType");
-  return authType === "COMPANY" ? "/company/dashboard" : "/user/dashboard";
+  if (authType === "COMPANY") return "/company/dashboard";
+  if (authType === "ADMIN") return "/admin/dashboard";
+  return "/user/dashboard";
 }
 
 export function Navbar() {
@@ -71,12 +88,10 @@ export function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ✅ real auth state
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(
     !!localStorage.getItem("token"),
   );
 
-  // ✅ keep navbar updated when token changes (login/logout, multi-tab)
   useEffect(() => {
     const syncAuth = () => setIsLoggedIn(!!localStorage.getItem("token"));
     window.addEventListener("storage", syncAuth);
@@ -88,8 +103,9 @@ export function Navbar() {
   }, []);
 
   const isActive = (path: string) => location.pathname === path;
+  const authType = localStorage.getItem("authType");
+  const isAdmin = authType === "ADMIN";
 
-  // ✅ Handler to scroll to top when clicking links
   const handleNavClick = () => {
     window.scrollTo({ top: 0, behavior: "instant" });
     setMobileMenuOpen(false);
@@ -100,7 +116,7 @@ export function Navbar() {
     localStorage.removeItem("authType");
     localStorage.removeItem("user");
     localStorage.removeItem("company");
-
+    localStorage.removeItem("admin");
     setIsLoggedIn(false);
     setMobileMenuOpen(false);
     navigate("/login");
@@ -129,7 +145,7 @@ export function Navbar() {
             </Link>
           </div>
 
-          {/* Desktop Navigation */}
+          {/* Desktop Navigation — always visible for ALL users including admin */}
           <div className="hidden lg:flex lg:items-center lg:gap-1">
             {navigation.map((item) => (
               <Link
@@ -152,20 +168,26 @@ export function Navbar() {
           <div className="hidden lg:flex lg:items-center lg:gap-3">
             {isLoggedIn ? (
               <>
-                {/* Notifications */}
-                <Button variant="ghost" size="icon" className="relative">
-                  <Bell className="h-5 w-5" />
-                  <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground flex items-center justify-center">
-                    3
-                  </span>
-                </Button>
+                {/* Notifications — hide for admin */}
+                {!isAdmin && (
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Bell className="h-5 w-5" />
+                    <span className="absolute -top-0.5 -right-0.5 h-4 w-4 rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground flex items-center justify-center">
+                      3
+                    </span>
+                  </Button>
+                )}
 
                 {/* User Menu */}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="gap-2">
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                        <User className="h-4 w-4 text-primary" />
+                        {isAdmin ? (
+                          <ShieldCheck className="h-4 w-4 text-primary" />
+                        ) : (
+                          <User className="h-4 w-4 text-primary" />
+                        )}
                       </div>
                       <span className="text-sm font-medium">{displayName}</span>
                       <ChevronDown className="h-4 w-4" />
@@ -173,7 +195,6 @@ export function Navbar() {
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent align="end" className="w-56">
-                    {/* ✅ One dashboard button based on authType */}
                     <DropdownMenuItem asChild>
                       <Link
                         to={dashboardPath}
@@ -185,31 +206,36 @@ export function Navbar() {
                       </Link>
                     </DropdownMenuItem>
 
-                    {/* Keep your existing items (optional) */}
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/company/applications"
-                        onClick={handleNavClick}
-                        className="flex items-center gap-2"
-                      >
-                        <User className="h-4 w-4" />
-                        My Applications
-                      </Link>
-                    </DropdownMenuItem>
-
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to="/settings"
-                        onClick={handleNavClick}
-                        className="flex items-center gap-2"
-                      >
-                        <Settings className="h-4 w-4" />
-                        Settings
-                      </Link>
-                    </DropdownMenuItem>
+                    {!isAdmin && (
+                      <>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            to={
+                              authType === "COMPANY"
+                                ? "/company/applications"
+                                : "/user/applications"
+                            }
+                            onClick={handleNavClick}
+                            className="flex items-center gap-2"
+                          >
+                            <User className="h-4 w-4" />
+                            My Applications
+                          </Link>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                          <Link
+                            to="/settings"
+                            onClick={handleNavClick}
+                            className="flex items-center gap-2"
+                          >
+                            <Settings className="h-4 w-4" />
+                            Settings
+                          </Link>
+                        </DropdownMenuItem>
+                      </>
+                    )}
 
                     <DropdownMenuSeparator />
-
                     <DropdownMenuItem
                       className="text-destructive"
                       onClick={handleLogout}
@@ -257,6 +283,7 @@ export function Navbar() {
       {mobileMenuOpen && (
         <div className="lg:hidden border-t border-border bg-background animate-slide-up">
           <div className="space-y-1 px-4 py-4">
+            {/* Always show nav links including for admin */}
             {navigation.map((item) => (
               <Link
                 key={item.name}

@@ -1,126 +1,131 @@
+import { useEffect, useState } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  Users, Building2, Briefcase, GraduationCap,
-  TrendingUp, UserCheck, Building, AlertTriangle, FileText,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Users,
+  Building2,
+  Briefcase,
+  GraduationCap,
+  TrendingUp,
+  AlertTriangle,
+  FileText,
+  Loader2,
 } from "lucide-react";
-
-const stats = {
-  totalUsers: 1250,
-  totalCompanies: 89,
-  totalJobs: 342,
-  totalInstitutions: 45,
-  activeApplications: 1876,
-  pendingApprovals: 23,
-};
+import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 export default function AdminOverview() {
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalUsers: 0,
+    totalCompanies: 0,
+    totalJobs: 0,
+    totalInstitutions: 0,
+    totalApplications: 0,
+    pendingApprovals: 0,
+  });
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      setLoading(true);
+      try {
+        const [u, c, j, i, a] = await Promise.all([
+          api.get("/admin/users"),
+          api.get("/admin/companies"),
+          api.get("/admin/jobs"),
+          api.get("/admin/institutions"),
+          api.get("/admin/applications"),
+        ]);
+
+        const allItems = [...u.data, ...c.data, ...j.data, ...i.data];
+        const pending = allItems.filter(
+          (x: any) => x.status === "PENDING",
+        ).length;
+
+        setStats({
+          totalUsers: u.data.length,
+          totalCompanies: c.data.length,
+          totalJobs: j.data.length,
+          totalInstitutions: i.data.length,
+          totalApplications: a.data.length,
+          pendingApprovals: pending,
+        });
+      } catch {
+        toast({ title: "Failed to load stats", variant: "destructive" });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
+
+  if (loading) {
+    return (
+      <AdminLayout>
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      </AdminLayout>
+    );
+  }
+
   return (
     <AdminLayout>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalUsers.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-primary" /> +12% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Companies</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalCompanies}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-primary" /> +8% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
-            <Briefcase className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalJobs}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-primary" /> +15% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Institutions</CardTitle>
-            <GraduationCap className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalInstitutions}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-primary" /> +5% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Applications</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.activeApplications.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1">
-              <TrendingUp className="h-3 w-3 text-primary" /> +22% from last month
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Pending Approvals</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.pendingApprovals}</div>
-            <p className="text-xs text-muted-foreground">Requires attention</p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Recent Activity */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Latest actions across the platform</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {[
-              { icon: UserCheck, text: "New user registration: john.doe@email.com", time: "2 minutes ago" },
-              { icon: Building, text: "Company verified: TechStartup Inc", time: "15 minutes ago" },
-              { icon: Briefcase, text: "New job posted: Senior Developer at DesignHub", time: "1 hour ago" },
-              { icon: AlertTriangle, text: "Job flagged for review: Marketing Position", time: "2 hours ago" },
-              { icon: GraduationCap, text: "New institution registered: Tech Academy", time: "3 hours ago" },
-            ].map((activity, index) => (
-              <div key={index} className="flex items-center gap-4 p-3 rounded-lg bg-muted/50">
-                <activity.icon className="h-5 w-5 text-primary" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium">{activity.text}</p>
-                  <p className="text-xs text-muted-foreground">{activity.time}</p>
-                </div>
+        {[
+          { label: "Total Users", value: stats.totalUsers, icon: Users },
+          { label: "Companies", value: stats.totalCompanies, icon: Building2 },
+          { label: "Jobs", value: stats.totalJobs, icon: Briefcase },
+          {
+            label: "Institutions",
+            value: stats.totalInstitutions,
+            icon: GraduationCap,
+          },
+          {
+            label: "Applications",
+            value: stats.totalApplications,
+            icon: FileText,
+          },
+          {
+            label: "Pending Approvals",
+            value: stats.pendingApprovals,
+            icon: AlertTriangle,
+            warn: true,
+          },
+        ].map((s) => (
+          <Card key={s.label}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">{s.label}</CardTitle>
+              <s.icon
+                className={`h-4 w-4 ${s.warn ? "text-yellow-500" : "text-muted-foreground"}`}
+              />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {s.value.toLocaleString()}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              {!s.warn && (
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <TrendingUp className="h-3 w-3 text-primary" /> Live data
+                </p>
+              )}
+              {s.warn && (
+                <p className="text-xs text-muted-foreground">
+                  Requires attention
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </AdminLayout>
   );
 }
