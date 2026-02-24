@@ -2,18 +2,35 @@ import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
-  Card, CardContent, CardDescription, CardHeader, CardTitle,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  ArrowLeft, Mail, Phone, MapPin, CheckCircle, Ban, XCircle,
-  Loader2, Calendar, User, Briefcase,
+  ArrowLeft,
+  Mail,
+  Phone,
+  MapPin,
+  Ban,
+  RotateCcw,
+  Loader2,
+  Calendar,
+  User,
+  Briefcase,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
@@ -45,19 +62,21 @@ function StatusBadge({ status }: { status: Status }) {
     REJECTED: "bg-red-500/10 text-red-600 border-red-500/20",
     SUSPENDED: "bg-orange-500/10 text-orange-600 border-orange-500/20",
   };
-  return <Badge variant="outline" className={map[status]}>{status}</Badge>;
+  return (
+    <Badge variant="outline" className={map[status]}>
+      {status}
+    </Badge>
+  );
 }
 
-// ─── State machine ──────────────────────────────────────────────────────────
-// PENDING   → Approve ✅ | Reject ✅ | Suspend ✗
-// APPROVED  → Approve ✗  | Reject ✗  | Suspend ✅
-// REJECTED  → Approve ✅ | Reject ✗  | Suspend ✗
-// SUSPENDED → Approve ✅ | Reject ✅ | Suspend ✗
+// ─── User state machine ─────────────────────────────────────────────────────
+// PENDING   → Suspend ✅  | Reinstate ✗  (not suspended yet)
+// SUSPENDED → Suspend ✗   | Reinstate ✅
+// (No approve / no reject for users)
 function getAllowedActions(status: Status) {
   return {
-    canApprove:  status === "PENDING" || status === "REJECTED" || status === "SUSPENDED",
-    canReject:   status === "PENDING" || status === "SUSPENDED",
-    canSuspend:  status === "APPROVED",
+    canSuspend: status !== "SUSPENDED",
+    canReinstate: status === "SUSPENDED",
   };
 }
 
@@ -67,8 +86,8 @@ export default function ViewUser() {
   const [user, setUser] = useState<ApiUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
-  const [rejectDialog, setRejectDialog] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
+  const [suspendDialog, setSuspendDialog] = useState(false);
+  const [suspendReason, setSuspendReason] = useState("");
 
   const fetchUser = async () => {
     setLoading(true);
@@ -82,26 +101,19 @@ export default function ViewUser() {
     }
   };
 
-  useEffect(() => { fetchUser(); }, [id]);
-
-  const approve = async () => {
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/users/${id}/approve`);
-      toast({ title: "User approved" });
-      fetchUser();
-    } catch {
-      toast({ title: "Failed to approve", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
+  useEffect(() => {
+    fetchUser();
+  }, [id]);
 
   const suspend = async () => {
     setActionLoading(true);
     try {
-      await api.patch(`/admin/users/${id}/suspend`);
+      await api.patch(`/admin/users/${id}/suspend`, {
+        rejectionReason: suspendReason.trim() || undefined,
+      });
       toast({ title: "User suspended" });
+      setSuspendDialog(false);
+      setSuspendReason("");
       fetchUser();
     } catch {
       toast({ title: "Failed to suspend", variant: "destructive" });
@@ -110,19 +122,14 @@ export default function ViewUser() {
     }
   };
 
-  const reject = async () => {
-    if (!rejectReason.trim()) return;
+  const reinstate = async () => {
     setActionLoading(true);
     try {
-      await api.patch(`/admin/users/${id}/reject`, {
-        rejectionReason: rejectReason.trim(),
-      });
-      toast({ title: "User rejected" });
-      setRejectDialog(false);
-      setRejectReason("");
+      await api.patch(`/admin/users/${id}/reinstate`);
+      toast({ title: "User reinstated" });
       fetchUser();
     } catch {
-      toast({ title: "Failed to reject", variant: "destructive" });
+      toast({ title: "Failed to reinstate", variant: "destructive" });
     } finally {
       setActionLoading(false);
     }
@@ -144,50 +151,60 @@ export default function ViewUser() {
         <div className="text-center py-12">
           <p className="text-muted-foreground">User not found.</p>
           <Link to="/admin/users">
-            <Button variant="outline" className="mt-4">Back to Users</Button>
+            <Button variant="outline" className="mt-4">
+              Back to Users
+            </Button>
           </Link>
         </div>
       </AdminLayout>
     );
   }
 
-  const { canApprove, canReject, canSuspend } = getAllowedActions(user.status);
-  const fullName = [user.firstName, user.lastName].filter(Boolean).join(" ") || "No name";
+  const { canSuspend, canReinstate } = getAllowedActions(user.status);
+  const fullName =
+    [user.firstName, user.lastName].filter(Boolean).join(" ") || "No name";
 
   return (
     <AdminLayout>
       <div className="space-y-6">
-
         {/* Header */}
         <div className="flex items-start gap-4 flex-wrap">
           <Link to="/admin/users">
-            <Button variant="ghost" size="icon"><ArrowLeft className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon">
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
           </Link>
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl font-bold">{fullName}</h1>
             <p className="text-muted-foreground">{user.email}</p>
           </div>
 
-          {/* Action buttons — state machine controlled */}
+          {/* Action buttons — suspend / reinstate only */}
           <div className="flex gap-2 flex-wrap">
-            {canApprove && (
-              <Button onClick={approve} disabled={actionLoading}
-                className="bg-green-600 hover:bg-green-700 text-white">
-                {actionLoading ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <CheckCircle className="h-4 w-4 mr-2" />}
-                {user.status === "SUSPENDED" ? "Reinstate" : "Approve"}
-              </Button>
-            )}
-            {canReject && (
-              <Button variant="destructive"
-                onClick={() => { setRejectDialog(true); setRejectReason(""); }}
-                disabled={actionLoading}>
-                <XCircle className="h-4 w-4 mr-2" />
-                Reject
+            {canReinstate && (
+              <Button
+                onClick={reinstate}
+                disabled={actionLoading}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {actionLoading ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                )}
+                Reinstate
               </Button>
             )}
             {canSuspend && (
-              <Button variant="outline" onClick={suspend} disabled={actionLoading}
-                className="border-orange-500 text-orange-600 hover:bg-orange-50">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setSuspendDialog(true);
+                  setSuspendReason("");
+                }}
+                disabled={actionLoading}
+                className="border-orange-500 text-orange-600 hover:bg-orange-50"
+              >
                 <Ban className="h-4 w-4 mr-2" />
                 Suspend
               </Button>
@@ -196,19 +213,15 @@ export default function ViewUser() {
         </div>
 
         {/* Status banners */}
-        {user.status === "REJECTED" && user.rejectionReason && (
-          <div className="rounded-lg px-4 py-3 text-sm border bg-red-500/10 border-red-500/20 text-red-700">
-            <span className="font-medium">Rejected: </span>{user.rejectionReason}
-          </div>
-        )}
-        {user.status === "SUSPENDED" && user.rejectionReason && (
+        {user.status === "SUSPENDED" && (
           <div className="rounded-lg px-4 py-3 text-sm border bg-orange-500/10 border-orange-500/20 text-orange-700">
-            <span className="font-medium">Suspended: </span>{user.rejectionReason}
+            <span className="font-medium">Suspended</span>
+            {user.rejectionReason && <span>: {user.rejectionReason}</span>}
           </div>
         )}
         {user.status === "PENDING" && (
           <div className="rounded-lg px-4 py-3 text-sm border bg-yellow-500/10 border-yellow-500/20 text-yellow-700">
-            This user is awaiting review. Approve or reject below.
+            This user's account is active. You can suspend them if needed.
           </div>
         )}
 
@@ -217,7 +230,9 @@ export default function ViewUser() {
           <Card className="md:col-span-2">
             <CardHeader>
               <CardTitle>User Information</CardTitle>
-              <CardDescription>Details about the registered user</CardDescription>
+              <CardDescription>
+                Details about the registered user
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -247,7 +262,9 @@ export default function ViewUser() {
                 </div>
                 {user.dob && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Date of Birth</p>
+                    <p className="text-sm text-muted-foreground">
+                      Date of Birth
+                    </p>
                     <p className="font-medium flex items-center gap-1">
                       <Calendar className="h-3 w-3" />
                       {new Date(user.dob).toLocaleDateString()}
@@ -266,8 +283,10 @@ export default function ViewUser() {
                 </div>
                 {user.reviewedAt && (
                   <div>
-                    <p className="text-sm text-muted-foreground">Reviewed At</p>
-                    <p className="font-medium">{new Date(user.reviewedAt).toLocaleDateString()}</p>
+                    <p className="text-sm text-muted-foreground">Last Action</p>
+                    <p className="font-medium">
+                      {new Date(user.reviewedAt).toLocaleDateString()}
+                    </p>
                   </div>
                 )}
               </div>
@@ -289,7 +308,9 @@ export default function ViewUser() {
                     <p className="text-sm text-muted-foreground mb-2">Skills</p>
                     <div className="flex flex-wrap gap-2">
                       {user.skills.map((skill, i) => (
-                        <Badge key={i} variant="secondary">{skill}</Badge>
+                        <Badge key={i} variant="secondary">
+                          {skill}
+                        </Badge>
                       ))}
                     </div>
                   </div>
@@ -301,37 +322,56 @@ export default function ViewUser() {
           {/* Sidebar */}
           <div className="space-y-6">
             <Card>
-              <CardHeader><CardTitle className="text-lg">Quick Stats</CardTitle></CardHeader>
+              <CardHeader>
+                <CardTitle className="text-lg">Quick Stats</CardTitle>
+              </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex justify-between">
                   <span className="text-muted-foreground flex items-center gap-1">
                     <Briefcase className="h-3 w-3" /> Applications
                   </span>
-                  <span className="font-medium">{user.applications?.length ?? 0}</span>
+                  <span className="font-medium">
+                    {user.applications?.length ?? 0}
+                  </span>
                 </div>
                 <Separator />
                 <div className="flex justify-between">
                   <span className="text-muted-foreground flex items-center gap-1">
                     <User className="h-3 w-3" /> Skills
                   </span>
-                  <span className="font-medium">{user.skills?.length ?? 0}</span>
+                  <span className="font-medium">
+                    {user.skills?.length ?? 0}
+                  </span>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Recent applications */}
             {user.applications && user.applications.length > 0 && (
               <Card>
-                <CardHeader><CardTitle className="text-lg">Applications</CardTitle></CardHeader>
+                <CardHeader>
+                  <CardTitle className="text-lg">Applications</CardTitle>
+                </CardHeader>
                 <CardContent className="space-y-2">
                   {user.applications.slice(0, 5).map((app) => (
-                    <div key={app.id} className="flex items-center justify-between text-sm">
-                      <span className="truncate flex-1">{app.job.jobTitle}</span>
-                      <Badge variant="outline" className="ml-2 text-xs shrink-0">{app.status}</Badge>
+                    <div
+                      key={app.id}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <span className="truncate flex-1">
+                        {app.job.jobTitle}
+                      </span>
+                      <Badge
+                        variant="outline"
+                        className="ml-2 text-xs shrink-0"
+                      >
+                        {app.status}
+                      </Badge>
                     </div>
                   ))}
                   {user.applications.length > 5 && (
-                    <p className="text-xs text-muted-foreground">+{user.applications.length - 5} more</p>
+                    <p className="text-xs text-muted-foreground">
+                      +{user.applications.length - 5} more
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -340,20 +380,34 @@ export default function ViewUser() {
         </div>
       </div>
 
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialog} onOpenChange={setRejectDialog}>
+      {/* Suspend Dialog */}
+      <Dialog open={suspendDialog} onOpenChange={setSuspendDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reject User</DialogTitle>
-            <DialogDescription>Provide a reason — this will be shown to the user.</DialogDescription>
+            <DialogTitle>Suspend User</DialogTitle>
+            <DialogDescription>
+              Optionally provide a reason for the suspension.
+            </DialogDescription>
           </DialogHeader>
-          <Textarea placeholder="e.g. Incomplete profile information..."
-            value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} rows={3} />
+          <Textarea
+            placeholder="e.g. Violation of platform terms of service... (optional)"
+            value={suspendReason}
+            onChange={(e) => setSuspendReason(e.target.value)}
+            rows={3}
+          />
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectDialog(false)}>Cancel</Button>
-            <Button variant="destructive" disabled={!rejectReason.trim() || actionLoading} onClick={reject}>
-              {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Confirm Reject
+            <Button variant="outline" onClick={() => setSuspendDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={actionLoading}
+              onClick={suspend}
+            >
+              {actionLoading && (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              )}
+              Confirm Suspend
             </Button>
           </DialogFooter>
         </DialogContent>
