@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
   Card,
@@ -10,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -26,15 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Search, Ban, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Search, Loader2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
@@ -69,14 +61,8 @@ export default function AdminCompanies() {
   const { toast } = useToast();
   const [companies, setCompanies] = useState<ApiCompany[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [rejectDialog, setRejectDialog] = useState<{
-    open: boolean;
-    companyId: number;
-  } | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
 
   const fetchCompanies = async () => {
     setLoading(true);
@@ -93,50 +79,6 @@ export default function AdminCompanies() {
   useEffect(() => {
     fetchCompanies();
   }, []);
-
-  const approve = async (companyId: number) => {
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/companies/${companyId}/approve`);
-      toast({ title: "Company approved" });
-      fetchCompanies();
-    } catch {
-      toast({ title: "Failed to approve", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const suspend = async (companyId: number) => {
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/companies/${companyId}/suspend`);
-      toast({ title: "Company suspended" });
-      fetchCompanies();
-    } catch {
-      toast({ title: "Failed to suspend", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const reject = async () => {
-    if (!rejectDialog || !rejectReason.trim()) return;
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/companies/${rejectDialog.companyId}/reject`, {
-        rejectionReason: rejectReason.trim(),
-      });
-      toast({ title: "Company rejected" });
-      setRejectDialog(null);
-      setRejectReason("");
-      fetchCompanies();
-    } catch {
-      toast({ title: "Failed to reject", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const filtered = companies.filter((c) => {
     const matchSearch = `${c.companyName} ${c.email}`
@@ -155,7 +97,7 @@ export default function AdminCompanies() {
             <div>
               <CardTitle>Company Management</CardTitle>
               <CardDescription>
-                Approve, reject or suspend companies
+                Review and manage registered companies
               </CardDescription>
             </div>
             <div className="flex gap-2">
@@ -216,47 +158,16 @@ export default function AdminCompanies() {
                       {c.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {c.status !== "APPROVED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Approve"
-                            disabled={actionLoading}
-                            onClick={() => approve(c.companyId)}
-                          >
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          </Button>
-                        )}
-                        {c.status !== "REJECTED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Reject"
-                            disabled={actionLoading}
-                            onClick={() => {
-                              setRejectDialog({
-                                open: true,
-                                companyId: c.companyId,
-                              });
-                              setRejectReason("");
-                            }}
-                          >
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                        {c.status !== "SUSPENDED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Suspend"
-                            disabled={actionLoading}
-                            onClick={() => suspend(c.companyId)}
-                          >
-                            <Ban className="h-4 w-4 text-orange-500" />
-                          </Button>
-                        )}
-                      </div>
+                      {/* ✅ Only View — all actions are on the detail page */}
+                      <Link to={`/admin/companies/${c.companyId}`}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -275,41 +186,6 @@ export default function AdminCompanies() {
           )}
         </CardContent>
       </Card>
-
-      <Dialog
-        open={!!rejectDialog?.open}
-        onOpenChange={() => setRejectDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Company</DialogTitle>
-            <DialogDescription>
-              Provide a reason — this will be shown to the company.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            placeholder="e.g. Missing business registration details..."
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            rows={3}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectDialog(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={!rejectReason.trim() || actionLoading}
-              onClick={reject}
-            >
-              {actionLoading && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              Confirm Reject
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AdminLayout>
   );
 }

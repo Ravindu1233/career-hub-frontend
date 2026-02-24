@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
   Card,
@@ -10,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -26,15 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Search, Ban, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Search, Loader2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
@@ -69,14 +61,8 @@ export default function AdminJobs() {
   const { toast } = useToast();
   const [jobs, setJobs] = useState<ApiJob[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [rejectDialog, setRejectDialog] = useState<{
-    open: boolean;
-    jobId: string;
-  } | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -93,50 +79,6 @@ export default function AdminJobs() {
   useEffect(() => {
     fetchJobs();
   }, []);
-
-  const approve = async (jobId: string) => {
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/jobs/${jobId}/approve`);
-      toast({ title: "Job approved" });
-      fetchJobs();
-    } catch {
-      toast({ title: "Failed to approve", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const suspend = async (jobId: string) => {
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/jobs/${jobId}/suspend`);
-      toast({ title: "Job suspended" });
-      fetchJobs();
-    } catch {
-      toast({ title: "Failed to suspend", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const reject = async () => {
-    if (!rejectDialog || !rejectReason.trim()) return;
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/jobs/${rejectDialog.jobId}/reject`, {
-        rejectionReason: rejectReason.trim(),
-      });
-      toast({ title: "Job rejected" });
-      setRejectDialog(null);
-      setRejectReason("");
-      fetchJobs();
-    } catch {
-      toast({ title: "Failed to reject", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const filtered = jobs.filter((j) => {
     const matchSearch = `${j.jobTitle} ${j.company.companyName}`
@@ -215,44 +157,16 @@ export default function AdminJobs() {
                       {j.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {j.status !== "APPROVED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Approve"
-                            disabled={actionLoading}
-                            onClick={() => approve(j.id)}
-                          >
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          </Button>
-                        )}
-                        {j.status !== "REJECTED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Reject"
-                            disabled={actionLoading}
-                            onClick={() => {
-                              setRejectDialog({ open: true, jobId: j.id });
-                              setRejectReason("");
-                            }}
-                          >
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                        {j.status !== "SUSPENDED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Suspend"
-                            disabled={actionLoading}
-                            onClick={() => suspend(j.id)}
-                          >
-                            <Ban className="h-4 w-4 text-orange-500" />
-                          </Button>
-                        )}
-                      </div>
+                      {/* ✅ View only — all actions on detail page */}
+                      <Link to={`/admin/jobs/${j.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -271,41 +185,6 @@ export default function AdminJobs() {
           )}
         </CardContent>
       </Card>
-
-      <Dialog
-        open={!!rejectDialog?.open}
-        onOpenChange={() => setRejectDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Job</DialogTitle>
-            <DialogDescription>
-              Provide a reason — this will be shown to the company.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            placeholder="e.g. Job description violates platform guidelines..."
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            rows={3}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectDialog(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={!rejectReason.trim() || actionLoading}
-              onClick={reject}
-            >
-              {actionLoading && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              Confirm Reject
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AdminLayout>
   );
 }

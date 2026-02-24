@@ -48,6 +48,10 @@ import AdminCompanies from "./pages/admin/AdminCompanies";
 import AdminJobs from "./pages/admin/AdminJobs";
 import AdminInstitutions from "./pages/admin/AdminInstitutions";
 import AdminSettings from "./pages/admin/AdminSettings";
+import ViewCompany from "./pages/admin/ViewCompany";
+import ViewUser from "./pages/admin/ViewUser";
+import AdminViewJob from "./pages/admin/ViewJobs";
+import AdminViewInstitution from "./pages/admin/ViewInstitution";
 
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
@@ -107,6 +111,15 @@ const App = () => (
             element={
               <ProtectedRoute allow="USER">
                 <SavedJobs />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin/jobs/:id"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <AdminViewJob />
               </ProtectedRoute>
             }
           />
@@ -251,10 +264,26 @@ const App = () => (
             }
           />
           <Route
+            path="/admin/users/:id"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <ViewUser />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/admin/companies"
             element={
               <ProtectedRoute allow="ADMIN">
                 <AdminCompanies />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/companies/:id"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <ViewCompany />
               </ProtectedRoute>
             }
           />
@@ -271,6 +300,14 @@ const App = () => (
             element={
               <ProtectedRoute allow="ADMIN">
                 <AdminInstitutions />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin/institutions/:id"
+            element={
+              <ProtectedRoute allow="ADMIN">
+                <AdminViewInstitution />
               </ProtectedRoute>
             }
           />

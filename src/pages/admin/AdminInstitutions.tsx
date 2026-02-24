@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import {
   Card,
@@ -10,7 +11,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -26,15 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Search, Ban, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Search, Loader2, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
@@ -68,14 +60,8 @@ export default function AdminInstitutions() {
   const { toast } = useToast();
   const [institutions, setInstitutions] = useState<ApiInstitution[]>([]);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [rejectDialog, setRejectDialog] = useState<{
-    open: boolean;
-    id: string;
-  } | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
 
   const fetchInstitutions = async () => {
     setLoading(true);
@@ -92,50 +78,6 @@ export default function AdminInstitutions() {
   useEffect(() => {
     fetchInstitutions();
   }, []);
-
-  const approve = async (id: string) => {
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/institutions/${id}/approve`);
-      toast({ title: "Institution approved" });
-      fetchInstitutions();
-    } catch {
-      toast({ title: "Failed to approve", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const suspend = async (id: string) => {
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/institutions/${id}/suspend`);
-      toast({ title: "Institution suspended" });
-      fetchInstitutions();
-    } catch {
-      toast({ title: "Failed to suspend", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
-  const reject = async () => {
-    if (!rejectDialog || !rejectReason.trim()) return;
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/institutions/${rejectDialog.id}/reject`, {
-        rejectionReason: rejectReason.trim(),
-      });
-      toast({ title: "Institution rejected" });
-      setRejectDialog(null);
-      setRejectReason("");
-      fetchInstitutions();
-    } catch {
-      toast({ title: "Failed to reject", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
 
   const filtered = institutions.filter((i) => {
     const matchSearch = `${i.name} ${i.email}`
@@ -215,44 +157,16 @@ export default function AdminInstitutions() {
                       {i.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        {i.status !== "APPROVED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Approve"
-                            disabled={actionLoading}
-                            onClick={() => approve(i.id)}
-                          >
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                          </Button>
-                        )}
-                        {i.status !== "REJECTED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Reject"
-                            disabled={actionLoading}
-                            onClick={() => {
-                              setRejectDialog({ open: true, id: i.id });
-                              setRejectReason("");
-                            }}
-                          >
-                            <XCircle className="h-4 w-4 text-destructive" />
-                          </Button>
-                        )}
-                        {i.status !== "SUSPENDED" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            title="Suspend"
-                            disabled={actionLoading}
-                            onClick={() => suspend(i.id)}
-                          >
-                            <Ban className="h-4 w-4 text-orange-500" />
-                          </Button>
-                        )}
-                      </div>
+                      {/* ✅ View only — all actions on detail page */}
+                      <Link to={`/admin/institutions/${i.id}`}>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="View details"
+                        >
+                          <Eye className="h-4 w-4 text-muted-foreground" />
+                        </Button>
+                      </Link>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -271,41 +185,6 @@ export default function AdminInstitutions() {
           )}
         </CardContent>
       </Card>
-
-      <Dialog
-        open={!!rejectDialog?.open}
-        onOpenChange={() => setRejectDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject Institution</DialogTitle>
-            <DialogDescription>
-              Provide a reason — this will be shown to the institution owner.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            placeholder="e.g. Missing accreditation documents..."
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            rows={3}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectDialog(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={!rejectReason.trim() || actionLoading}
-              onClick={reject}
-            >
-              {actionLoading && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              Confirm Reject
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </AdminLayout>
   );
 }
