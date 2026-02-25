@@ -84,8 +84,8 @@ export default function AdminJobs() {
     const matchSearch = `${j.jobTitle} ${j.company.companyName}`
       .toLowerCase()
       .includes(search.toLowerCase());
-    const matchStatus =
-      statusFilter === "all" || j.status === statusFilter.toUpperCase();
+    // ✅ Fixed: direct comparison, SelectItem values are already uppercase
+    const matchStatus = statusFilter === "all" || j.status === statusFilter;
     return matchSearch && matchStatus;
   });
 
@@ -112,12 +112,13 @@ export default function AdminJobs() {
                 <SelectTrigger className="w-36">
                   <SelectValue />
                 </SelectTrigger>
+                {/* ✅ Fixed: values are uppercase to match Status type directly */}
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
+                  <SelectItem value="PENDING">Pending</SelectItem>
+                  <SelectItem value="APPROVED">Approved</SelectItem>
+                  <SelectItem value="REJECTED">Rejected</SelectItem>
+                  <SelectItem value="SUSPENDED">Suspended</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -157,7 +158,6 @@ export default function AdminJobs() {
                       {j.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {/* ✅ View only — all actions on detail page */}
                       <Link to={`/admin/jobs/${j.id}`}>
                         <Button
                           variant="ghost"

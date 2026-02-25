@@ -10,10 +10,10 @@ import {
   Check,
   Upload,
   FileText,
-  User,
   MapPin,
   Building2,
   X,
+  AlertCircle,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
@@ -33,11 +33,9 @@ const ApplyJob = () => {
 
   const [job, setJob] = useState<any>(null);
 
-  // Load job details
   useEffect(() => {
     async function loadJob() {
       if (!id) return;
-
       try {
         setJobLoading(true);
         const res = await api.get(`/jobs/${id}`);
@@ -54,7 +52,6 @@ const ApplyJob = () => {
         setJobLoading(false);
       }
     }
-
     loadJob();
   }, [id, navigate, toast]);
 
@@ -66,8 +63,6 @@ const ApplyJob = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-
-      // Validate file type
       const allowedTypes = [
         "application/pdf",
         "application/msword",
@@ -81,8 +76,6 @@ const ApplyJob = () => {
         });
         return;
       }
-
-      // Validate file size (10MB)
       if (file.size > 10 * 1024 * 1024) {
         toast({
           title: "File too large",
@@ -91,7 +84,6 @@ const ApplyJob = () => {
         });
         return;
       }
-
       setFormData({ ...formData, cvFile: file });
     }
   };
@@ -106,9 +98,18 @@ const ApplyJob = () => {
       return;
     }
 
+    // ✅ Extra frontend guard — block if job is full
+    if (job?.isFull) {
+      toast({
+        title: "Applications Closed",
+        description: "This job has reached its maximum number of applicants.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
-
       const formDataToSend = new FormData();
       formDataToSend.append("cv", formData.cvFile);
       if (formData.coverLetter) {
@@ -116,16 +117,13 @@ const ApplyJob = () => {
       }
 
       await api.post(`/applications/apply/${id}`, formDataToSend, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
 
       toast({
         title: "Application Submitted!",
         description: "Your application has been sent successfully.",
       });
-
       navigate("/my-applications");
     } catch (error: any) {
       toast({
@@ -159,6 +157,45 @@ const ApplyJob = () => {
         <div className="bg-muted/30 min-h-screen py-8">
           <div className="container mx-auto px-4 max-w-4xl">
             <div className="text-center text-destructive">Job not found</div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  // ✅ Block the entire page if job is full
+  if (job.isFull) {
+    return (
+      <MainLayout>
+        <div className="bg-muted/30 min-h-screen py-8">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <Link
+              to={`/jobs/${id}`}
+              className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Job Details
+            </Link>
+            <div className="bg-card rounded-xl p-8 shadow-sm text-center space-y-4">
+              <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
+                <AlertCircle className="h-8 w-8 text-destructive" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">
+                Applications Closed
+              </h2>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                This job has reached its maximum number of applicants and is no
+                longer accepting new applications.
+              </p>
+              <div className="flex gap-3 justify-center pt-2">
+                <Button asChild variant="outline">
+                  <Link to={`/jobs/${id}`}>View Job Details</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/jobs">Browse Other Jobs</Link>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </MainLayout>

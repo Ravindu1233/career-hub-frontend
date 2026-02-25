@@ -52,6 +52,7 @@ interface ApiJob {
   requirements: string;
   deadline?: string;
   jobDate: string;
+  maxApplicants?: number | null; // ✅ new field
   status: Status;
   rejectionReason?: string;
   reviewedAt?: string;
@@ -76,11 +77,6 @@ function StatusBadge({ status }: { status: Status }) {
   );
 }
 
-// ─── State machine ─────────────────────────────────────────────────────────────
-// PENDING   → Approve ✅  | Reject ✅  | Suspend ✗
-// APPROVED  → Approve ✗   | Reject ✗   | Suspend ✅
-// REJECTED  → Approve ✅  | Reject ✗   | Suspend ✗
-// SUSPENDED → Approve ✅  | Reject ✅  | Suspend ✗
 function getAllowedActions(status: Status) {
   return {
     canApprove:
@@ -102,13 +98,9 @@ export default function AdminViewJob() {
   const fetchJob = async () => {
     setLoading(true);
     try {
-      // The admin GET /admin/jobs endpoint returns all jobs with company included.
-      // Since there's no single-job endpoint, we fetch all and find by id.
-      // If you later add GET /admin/jobs/:id on the backend, swap this out.
-      const res = await api.get("/admin/jobs");
-      const found = res.data.find((j: ApiJob) => j.id === id);
-      if (!found) throw new Error("Not found");
-      setJob(found);
+      // ✅ Use direct endpoint instead of fetching all jobs
+      const res = await api.get(`/admin/jobs/${id}`);
+      setJob(res.data);
     } catch {
       toast({ title: "Failed to load job", variant: "destructive" });
     } finally {
@@ -190,6 +182,7 @@ export default function AdminViewJob() {
   }
 
   const { canApprove, canReject, canSuspend } = getAllowedActions(job.status);
+  const applicantCount = job.applications?.length ?? 0;
 
   return (
     <AdminLayout>
@@ -206,7 +199,6 @@ export default function AdminViewJob() {
             <p className="text-muted-foreground">{job.company.companyName}</p>
           </div>
 
-          {/* Action buttons — state machine controlled */}
           <div className="flex gap-2 flex-wrap">
             {canApprove && (
               <Button
@@ -317,6 +309,23 @@ export default function AdminViewJob() {
                     </p>
                   </div>
                 )}
+                {/* ✅ Max applicants field */}
+                {job.maxApplicants != null && (
+                  <div>
+                    <p className="text-sm text-muted-foreground">
+                      Max Applicants
+                    </p>
+                    <p className="font-medium flex items-center gap-1">
+                      <Users className="h-3 w-3" />
+                      {applicantCount} / {job.maxApplicants}
+                      {applicantCount >= job.maxApplicants && (
+                        <Badge variant="destructive" className="ml-1 text-xs">
+                          Full
+                        </Badge>
+                      )}
+                    </p>
+                  </div>
+                )}
                 <div>
                   <p className="text-sm text-muted-foreground">Status</p>
                   <StatusBadge status={job.status} />
@@ -398,7 +407,10 @@ export default function AdminViewJob() {
                     <Users className="h-3 w-3" /> Applications
                   </span>
                   <span className="font-medium">
-                    {job.applications?.length ?? 0}
+                    {/* ✅ Show count / max if max is set */}
+                    {job.maxApplicants != null
+                      ? `${applicantCount} / ${job.maxApplicants}`
+                      : applicantCount}
                   </span>
                 </div>
                 <Separator />

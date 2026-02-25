@@ -35,7 +35,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
-type Status = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+type Status = "ACTIVE" | "SUSPENDED";
 
 interface ApiUser {
   userId: number;
@@ -57,9 +57,7 @@ interface ApiUser {
 
 function StatusBadge({ status }: { status: Status }) {
   const map: Record<Status, string> = {
-    APPROVED: "bg-green-500/10 text-green-600 border-green-500/20",
-    PENDING: "bg-yellow-500/10 text-yellow-600 border-yellow-500/20",
-    REJECTED: "bg-red-500/10 text-red-600 border-red-500/20",
+    ACTIVE: "bg-green-500/10 text-green-600 border-green-500/20",
     SUSPENDED: "bg-orange-500/10 text-orange-600 border-orange-500/20",
   };
   return (
@@ -69,10 +67,6 @@ function StatusBadge({ status }: { status: Status }) {
   );
 }
 
-// ─── User state machine ─────────────────────────────────────────────────────
-// PENDING   → Suspend ✅  | Reinstate ✗  (not suspended yet)
-// SUSPENDED → Suspend ✗   | Reinstate ✅
-// (No approve / no reject for users)
 function getAllowedActions(status: Status) {
   return {
     canSuspend: status !== "SUSPENDED",
@@ -219,8 +213,8 @@ export default function ViewUser() {
             {user.rejectionReason && <span>: {user.rejectionReason}</span>}
           </div>
         )}
-        {user.status === "PENDING" && (
-          <div className="rounded-lg px-4 py-3 text-sm border bg-yellow-500/10 border-yellow-500/20 text-yellow-700">
+        {user.status === "ACTIVE" && (
+          <div className="rounded-lg px-4 py-3 text-sm border bg-green-500/10 border-green-500/20 text-green-700">
             This user's account is active. You can suspend them if needed.
           </div>
         )}

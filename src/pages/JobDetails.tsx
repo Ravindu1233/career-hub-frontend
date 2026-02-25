@@ -9,7 +9,6 @@ import {
   MapPin,
   Clock,
   Bookmark,
-  Share2,
   Building2,
   DollarSign,
   Calendar,
@@ -18,6 +17,7 @@ import {
   CheckCircle,
   Briefcase,
   ChevronRight,
+  AlertCircle,
 } from "lucide-react";
 
 type JobType = Job["type"];
@@ -27,36 +27,28 @@ function timeAgo(dateString?: string) {
   if (!dateString) return "Recently";
   const d = new Date(dateString);
   if (Number.isNaN(d.getTime())) return "Recently";
-
   const diffMs = Date.now() - d.getTime();
   const diffMin = Math.floor(diffMs / (1000 * 60));
   if (diffMin < 1) return "Just now";
   if (diffMin < 60) return `${diffMin} min ago`;
-
   const diffHr = Math.floor(diffMin / 60);
   if (diffHr < 24) return `${diffHr} hours ago`;
-
   const diffDay = Math.floor(diffHr / 24);
   if (diffDay < 7) return `${diffDay} days ago`;
-
   const diffWeek = Math.floor(diffDay / 7);
   if (diffWeek < 5) return `${diffWeek} weeks ago`;
-
   const diffMonth = Math.floor(diffDay / 30);
   if (diffMonth < 12) return `${diffMonth} months ago`;
-
   const diffYear = Math.floor(diffDay / 365);
   return `${diffYear} years ago`;
 }
 
 function normalizeJobType(raw?: string): JobType {
   const v = (raw || "").trim().toLowerCase();
-
   if (v.includes("full")) return "Full-time";
   if (v.includes("part")) return "Part-time";
   if (v.includes("intern")) return "Internship";
   if (v.includes("contract") || v.includes("freelance")) return "Contract";
-
   return "Full-time";
 }
 
@@ -66,11 +58,9 @@ function extractSkills(requirements?: string) {
     .split(/,|\n|•|-|\||\//g)
     .map((s) => s.trim())
     .filter(Boolean);
-
   const cleaned = parts
     .map((p) => p.replace(/\s+/g, " "))
     .filter((p) => p.length >= 2 && p.length <= 24);
-
   const uniq: string[] = [];
   for (const s of cleaned) {
     const key = s.toLowerCase();
@@ -86,8 +76,6 @@ function splitToList(text?: string) {
     .split(/\n|•|-/g)
     .map((s) => s.trim())
     .filter(Boolean);
-
-  // If it's one big paragraph, keep as single item
   if (parts.length === 1 && parts[0].length > 140) return [parts[0]];
   return parts;
 }
@@ -110,11 +98,9 @@ export default function JobDetails() {
     "overview" | "company" | "similar"
   >("overview");
   const [saved, setSaved] = useState(false);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
-  // job from backend (raw + mapped fields used by UI)
   const [jobRaw, setJobRaw] = useState<any>(null);
   const [jobCardModel, setJobCardModel] = useState<Job | null>(null);
   const [similarJobs, setSimilarJobs] = useState<Job[]>([]);
@@ -124,16 +110,13 @@ export default function JobDetails() {
 
     async function load() {
       if (!id) return;
-
       try {
         setLoading(true);
         setError("");
 
-        // 1) Load job details
         const jobRes = await api.get(`/jobs/${id}`);
         const j = jobRes.data;
 
-        // 2) Load all jobs for "similar" section (simple client-side filter)
         const listRes = await api.get(`/jobs`);
         const all = Array.isArray(listRes.data) ? listRes.data : [];
 
@@ -170,7 +153,6 @@ export default function JobDetails() {
           }));
 
         if (!alive) return;
-
         setJobRaw(j);
         setJobCardModel(mappedCurrent);
         setSimilarJobs(mappedSimilar);
@@ -191,23 +173,19 @@ export default function JobDetails() {
     };
   }, [id]);
 
-  const description = useMemo(() => {
-    return String(jobRaw?.jobDescription ?? "");
-  }, [jobRaw]);
-
-  const responsibilities = useMemo(() => {
-    // backend doesn't have a separate field; try to infer from description if you later add it
-    return [];
-  }, [jobRaw]);
-
-  const requirementsList = useMemo(() => {
-    return splitToList(String(jobRaw?.requirements ?? ""));
-  }, [jobRaw]);
-
-  const skills = useMemo(() => {
-    const req = String(jobRaw?.requirements ?? "");
-    return extractSkills(req);
-  }, [jobRaw]);
+  const description = useMemo(
+    () => String(jobRaw?.jobDescription ?? ""),
+    [jobRaw],
+  );
+  const responsibilities = useMemo(() => [], [jobRaw]);
+  const requirementsList = useMemo(
+    () => splitToList(String(jobRaw?.requirements ?? "")),
+    [jobRaw],
+  );
+  const skills = useMemo(
+    () => extractSkills(String(jobRaw?.requirements ?? "")),
+    [jobRaw],
+  );
 
   const company = jobRaw?.company || {};
   const companyName = String(
@@ -220,8 +198,22 @@ export default function JobDetails() {
   const companyBenefits = splitToList(String(company?.benefitsAndPerks ?? ""));
 
   const salaryText = String(jobRaw?.salaryRange ?? jobCardModel?.salary ?? "—");
-  const deadlineText = "—"; // not in backend (add later if you want)
-  const applicantsText = "—"; // not in backend (add later if you want)
+
+  // ✅ Real values from backend
+  const deadlineText = formatDateShort(jobRaw?.deadline);
+  const applicantCount: number =
+    jobRaw?.applicantCount ?? jobRaw?.applications?.length ?? 0;
+  const maxApplicants: number | null = jobRaw?.maxApplicants ?? null;
+  const isFull: boolean = jobRaw?.isFull ?? false;
+
+  // Deadline warning — show if deadline is within 3 days
+  const deadlineWarning = useMemo(() => {
+    if (!jobRaw?.deadline) return false;
+    const d = new Date(jobRaw.deadline);
+    if (Number.isNaN(d.getTime())) return false;
+    const diffDays = (d.getTime() - Date.now()) / (1000 * 60 * 60 * 24);
+    return diffDays > 0 && diffDays <= 3;
+  }, [jobRaw]);
 
   if (loading) {
     return (
@@ -272,15 +264,34 @@ export default function JobDetails() {
       {/* Job Header */}
       <section className="bg-muted/30 pb-8">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          {/* ✅ Full warning banner */}
+          {isFull && (
+            <div className="mb-4 pt-6 rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-3 flex items-center gap-2 text-destructive text-sm">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>
+                This job has reached its maximum number of applicants and is no
+                longer accepting applications.
+              </span>
+            </div>
+          )}
+
+          {/* ✅ Deadline warning banner */}
+          {deadlineWarning && !isFull && (
+            <div className="mb-4 pt-6 rounded-xl border border-warning/30 bg-warning/5 px-4 py-3 flex items-center gap-2 text-warning text-sm">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>
+                This job is closing soon — deadline is {deadlineText}.
+              </span>
+            </div>
+          )}
+
           <div className="flex flex-col lg:flex-row gap-6 lg:items-start">
             {/* Left: Job info */}
             <div className="flex-1">
               <div className="flex items-start gap-4 mb-4">
-                {/* Company logo */}
                 <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-card border border-border/50 flex items-center justify-center flex-shrink-0 shadow-card">
                   <Building2 className="h-8 w-8 lg:h-10 lg:w-10 text-muted-foreground" />
                 </div>
-
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
                     {jobCardModel.title}
@@ -313,16 +324,28 @@ export default function JobDetails() {
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <Users className="h-4 w-4" />
-                  <span>{applicantsText} applicants</span>
+                  {/* ✅ Show real count + max if set */}
+                  <span>
+                    {applicantCount}
+                    {maxApplicants != null ? ` / ${maxApplicants}` : ""}{" "}
+                    applicants
+                  </span>
                 </div>
               </div>
             </div>
 
             {/* Right: Actions */}
             <div className="flex flex-col sm:flex-row lg:flex-col gap-3">
-              <Button size="lg" className="flex-1 lg:w-48" asChild>
-                <Link to={`/jobs/${id}/apply`}>Apply Now</Link>
-              </Button>
+              {/* ✅ Disable Apply Now if full */}
+              {isFull ? (
+                <Button size="lg" className="flex-1 lg:w-48" disabled>
+                  Applications Closed
+                </Button>
+              ) : (
+                <Button size="lg" className="flex-1 lg:w-48" asChild>
+                  <Link to={`/jobs/${id}/apply`}>Apply Now</Link>
+                </Button>
+              )}
               <div className="flex gap-3">
                 <Button
                   variant="outline"
@@ -335,15 +358,6 @@ export default function JobDetails() {
                     className={`h-5 w-5 ${saved ? "fill-current" : ""}`}
                   />
                   {saved ? "Saved" : "Save"}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="flex-1"
-                  type="button"
-                >
-                  <Share2 className="h-5 w-5" />
-                  Share
                 </Button>
               </div>
             </div>
@@ -389,14 +403,21 @@ export default function JobDetails() {
                   </div>
                 </div>
 
+                {/* ✅ Real deadline */}
                 <div className="p-4 rounded-xl bg-card border border-border/50 shadow-card">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-lg bg-warning/10 flex items-center justify-center">
-                      <Calendar className="h-5 w-5 text-warning" />
+                    <div
+                      className={`h-10 w-10 rounded-lg flex items-center justify-center ${deadlineWarning ? "bg-warning/10" : "bg-warning/10"}`}
+                    >
+                      <Calendar
+                        className={`h-5 w-5 ${deadlineWarning ? "text-destructive" : "text-warning"}`}
+                      />
                     </div>
                     <div>
                       <p className="text-sm text-muted-foreground">Deadline</p>
-                      <p className="text-lg font-bold text-foreground">
+                      <p
+                        className={`text-lg font-bold ${deadlineWarning ? "text-destructive" : "text-foreground"}`}
+                      >
                         {deadlineText}
                       </p>
                     </div>
@@ -430,7 +451,6 @@ export default function JobDetails() {
               {/* Tab content */}
               {activeTab === "overview" && (
                 <div className="space-y-8">
-                  {/* Description */}
                   <div>
                     <h2 className="text-xl font-semibold text-foreground mb-4">
                       Job Description
@@ -440,7 +460,6 @@ export default function JobDetails() {
                     </p>
                   </div>
 
-                  {/* Responsibilities (not in backend) */}
                   {responsibilities.length > 0 && (
                     <div>
                       <h2 className="text-xl font-semibold text-foreground mb-4">
@@ -459,7 +478,6 @@ export default function JobDetails() {
                     </div>
                   )}
 
-                  {/* Requirements */}
                   <div>
                     <h2 className="text-xl font-semibold text-foreground mb-4">
                       Requirements
@@ -480,7 +498,6 @@ export default function JobDetails() {
                     )}
                   </div>
 
-                  {/* Skills */}
                   <div>
                     <h2 className="text-xl font-semibold text-foreground mb-4">
                       Required Skills
@@ -500,7 +517,6 @@ export default function JobDetails() {
                     </div>
                   </div>
 
-                  {/* Benefits (from company.benefitsAndPerks) */}
                   {companyBenefits.length > 0 && (
                     <div>
                       <h2 className="text-xl font-semibold text-foreground mb-4">
@@ -542,17 +558,14 @@ export default function JobDetails() {
                         </p>
                       </div>
                     </div>
-
                     <p className="text-muted-foreground mb-6">
                       {companyDescription || "—"}
                     </p>
-
                     <div className="grid sm:grid-cols-2 gap-4">
                       <div className="flex items-center gap-3">
                         <Users className="h-5 w-5 text-muted-foreground" />
                         <span className="text-sm">{companySize || "—"}</span>
                       </div>
-
                       <div className="flex items-center gap-3">
                         <Globe className="h-5 w-5 text-muted-foreground" />
                         {companyWebsite ? (
@@ -594,13 +607,27 @@ export default function JobDetails() {
                   <h3 className="text-lg font-semibold text-foreground mb-4">
                     Quick Apply
                   </h3>
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Submit your application in just a few clicks. Takes about 2
-                    minutes.
-                  </p>
-                  <Button className="w-full" size="lg" asChild>
-                    <Link to={`/jobs/${id}/apply`}>Apply Now</Link>
-                  </Button>
+                  {isFull ? (
+                    <>
+                      <p className="text-sm text-destructive mb-4 flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 shrink-0" />
+                        This job is no longer accepting applications.
+                      </p>
+                      <Button className="w-full" size="lg" disabled>
+                        Applications Closed
+                      </Button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Submit your application in just a few clicks. Takes
+                        about 2 minutes.
+                      </p>
+                      <Button className="w-full" size="lg" asChild>
+                        <Link to={`/jobs/${id}/apply`}>Apply Now</Link>
+                      </Button>
+                    </>
+                  )}
                 </div>
 
                 {/* Company card */}
@@ -626,7 +653,7 @@ export default function JobDetails() {
                   </Button>
                 </div>
 
-                {/* Meta (optional) */}
+                {/* Job Details */}
                 <div className="p-6 rounded-2xl bg-card border border-border/50 shadow-card">
                   <h3 className="text-lg font-semibold text-foreground mb-4">
                     Job Details
@@ -636,6 +663,14 @@ export default function JobDetails() {
                       <span>Posted</span>
                       <span className="text-foreground">
                         {formatDateShort(jobRaw?.jobDate)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span>Deadline</span>
+                      <span
+                        className={`${deadlineWarning ? "text-destructive font-medium" : "text-foreground"}`}
+                      >
+                        {deadlineText}
                       </span>
                     </div>
                     <div className="flex items-center justify-between text-muted-foreground">
@@ -650,6 +685,17 @@ export default function JobDetails() {
                         {jobCardModel.location}
                       </span>
                     </div>
+                    {maxApplicants != null && (
+                      <div className="flex items-center justify-between text-muted-foreground">
+                        <span>Applicants</span>
+                        <span
+                          className={`${isFull ? "text-destructive font-medium" : "text-foreground"}`}
+                        >
+                          {applicantCount} / {maxApplicants}
+                          {isFull && " (Full)"}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
