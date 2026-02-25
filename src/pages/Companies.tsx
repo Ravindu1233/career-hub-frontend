@@ -18,10 +18,8 @@ import {
   Briefcase,
   CheckCircle,
   Building2,
-  Star,
 } from "lucide-react";
 
-// ✅ Keep your UI filter options (same as before)
 const industries = [
   "All Industries",
   "Technology",
@@ -44,7 +42,6 @@ const companySizes = [
   "5000+",
 ];
 
-// ---- Types ----
 type CompanyApi = {
   companyId: number;
   companyName: string;
@@ -52,8 +49,6 @@ type CompanyApi = {
   location?: string | null;
   companySize?: string | null;
   description?: string | null;
-  verified?: boolean | null;
-  rating?: number | null;
   openJobs?: number | null;
 };
 
@@ -65,8 +60,6 @@ type CompanyUI = {
   location: string;
   size: string;
   openJobs: number;
-  rating: number;
-  verified: boolean;
   description: string;
 };
 
@@ -89,8 +82,6 @@ function toUI(c: CompanyApi): CompanyUI {
     openJobs: Number.isFinite(c.openJobs as number)
       ? (c.openJobs as number)
       : 0,
-    rating: Number.isFinite(c.rating as number) ? (c.rating as number) : 0,
-    verified: Boolean(c.verified),
     description: c.description ?? "",
   };
 }
@@ -100,7 +91,6 @@ export default function Companies() {
   const [selectedIndustry, setSelectedIndustry] = useState("All Industries");
   const [selectedSize, setSelectedSize] = useState("All Sizes");
 
-  // ✅ data from backend (no dummy)
   const [companies, setCompanies] = useState<CompanyUI[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,9 +100,6 @@ export default function Companies() {
       setLoading(true);
       setError(null);
       try {
-        // ✅ IMPORTANT:
-        // Your backend should have a route like GET /companies
-        // that returns an array of companies.
         const res = await api.get("/companies");
         const list = Array.isArray(res.data) ? (res.data as CompanyApi[]) : [];
         setCompanies(list.map(toUI));
@@ -123,7 +110,6 @@ export default function Companies() {
         setLoading(false);
       }
     };
-
     loadCompanies();
   }, []);
 
@@ -219,7 +205,6 @@ export default function Companies() {
             </p>
           </div>
 
-          {/* Optional (minimal) status text */}
           {loading && (
             <p className="text-sm text-muted-foreground mb-6">
               Loading companies...
@@ -236,17 +221,16 @@ export default function Companies() {
                 className="group bg-card rounded-xl border border-border p-6 card-hover"
               >
                 <div className="flex items-start gap-4 mb-4">
-                  <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xl">
+                  <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xl flex-shrink-0">
                     {company.logo}
                   </div>
-                  <div className="flex-1">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors">
+                      <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors truncate">
                         {company.name}
                       </h3>
-                      {company.verified && (
-                        <CheckCircle className="h-5 w-5 text-success fill-success/20" />
-                      )}
+                      {/* ✅ All companies here are APPROVED by backend — always show verified */}
+                      <CheckCircle className="h-5 w-5 text-success fill-success/20 flex-shrink-0" />
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {company.industry}
@@ -255,28 +239,26 @@ export default function Companies() {
                 </div>
 
                 <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
-                  {company.description}
+                  {company.description || "No description available."}
                 </p>
 
-                <div className="flex flex-wrap gap-2 mb-4">
+                <div className="flex flex-wrap gap-3 mb-4">
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <MapPin className="h-4 w-4" />
-                    {company.location}
+                    <MapPin className="h-4 w-4 flex-shrink-0" />
+                    <span className="truncate">{company.location}</span>
                   </div>
                   <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                    <Users className="h-4 w-4" />
+                    <Users className="h-4 w-4 flex-shrink-0" />
                     {company.size}
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between pt-4 border-t border-border">
-                  <div className="flex items-center gap-1">
-                    <Star className="h-4 w-4 text-warning fill-warning" />
-                    <span className="font-medium">{company.rating}</span>
-                  </div>
+                {/* ✅ Removed broken rating (no DB field) — just show open jobs */}
+                <div className="flex items-center justify-end pt-4 border-t border-border">
                   <Badge variant="primary">
                     <Briefcase className="h-3 w-3 mr-1" />
-                    {company.openJobs} Open Jobs
+                    {company.openJobs}{" "}
+                    {company.openJobs === 1 ? "Open Job" : "Open Jobs"}
                   </Badge>
                 </div>
               </Link>

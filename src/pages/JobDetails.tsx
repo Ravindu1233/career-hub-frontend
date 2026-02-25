@@ -21,7 +21,6 @@ import {
 } from "lucide-react";
 
 type JobType = Job["type"];
-const experienceLevels = ["Entry Level", "Mid Level", "Senior", "Executive"];
 
 function timeAgo(dateString?: string) {
   if (!dateString) return "Recently";
@@ -393,11 +392,9 @@ export default function JobDetails() {
                       <Briefcase className="h-5 w-5 text-accent" />
                     </div>
                     <div>
-                      <p className="text-sm text-muted-foreground">
-                        Experience
-                      </p>
+                      <p className="text-sm text-muted-foreground">Job Type</p>
                       <p className="text-lg font-bold text-foreground">
-                        {experienceLevels[2]}
+                        {jobCardModel.type}
                       </p>
                     </div>
                   </div>

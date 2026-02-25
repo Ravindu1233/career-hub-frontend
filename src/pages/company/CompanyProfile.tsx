@@ -14,6 +14,9 @@ import {
   Save,
   X,
   Edit3,
+  AlertCircle,
+  Clock,
+  CheckCircle,
 } from "lucide-react";
 
 type CompanyMeApi = {
@@ -30,6 +33,8 @@ type CompanyMeApi = {
   founded: string | null;
   benefitsAndPerks: string | null;
   profilePic: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED" | "ACTIVE";
+  rejectionReason: string | null;
 };
 
 type CompanyProfileUI = {
@@ -43,6 +48,8 @@ type CompanyProfileUI = {
   founded: string;
   description: string;
   benefits: string[];
+  status: CompanyMeApi["status"];
+  rejectionReason: string;
 };
 
 function parseBenefits(v?: string | null): string[] {
@@ -67,7 +74,77 @@ function toUI(apiData: CompanyMeApi): CompanyProfileUI {
       : "",
     description: apiData.description ?? "",
     benefits: parseBenefits(apiData.benefitsAndPerks),
+    status: apiData.status,
+    rejectionReason: apiData.rejectionReason ?? "",
   };
+}
+
+function StatusBanner({
+  status,
+  rejectionReason,
+}: {
+  status: CompanyMeApi["status"];
+  rejectionReason: string;
+}) {
+  if (status === "APPROVED" || status === "ACTIVE") {
+    return (
+      <div className="mb-6 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 flex items-center gap-2 text-green-700 dark:text-green-400 text-sm">
+        <CheckCircle className="h-4 w-4 shrink-0" />
+        <span>
+          Your company is approved. You can edit your profile anytime.
+        </span>
+      </div>
+    );
+  }
+
+  if (status === "PENDING") {
+    return (
+      <div className="mb-6 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 flex items-center gap-2 text-yellow-700 dark:text-yellow-400 text-sm">
+        <Clock className="h-4 w-4 shrink-0" />
+        <span>
+          Your company is pending admin approval. Profile editing is disabled
+          until approved. Your jobs are also hidden from public until
+          re-approved.
+        </span>
+      </div>
+    );
+  }
+
+  if (status === "REJECTED") {
+    return (
+      <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 flex items-start gap-2 text-destructive text-sm">
+        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium">Your company application was rejected.</p>
+          {rejectionReason && (
+            <p className="mt-1 text-destructive/80">
+              Reason: {rejectionReason}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "SUSPENDED") {
+    return (
+      <div className="mb-6 rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 flex items-start gap-2 text-destructive text-sm">
+        <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+        <div>
+          <p className="font-medium">
+            Your company account has been suspended.
+          </p>
+          {rejectionReason && (
+            <p className="mt-1 text-destructive/80">
+              Reason: {rejectionReason}
+            </p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 export default function CompanyProfile() {
@@ -83,25 +160,19 @@ export default function CompanyProfile() {
     founded: "",
     description: "",
     benefits: [],
+    status: "PENDING",
+    rejectionReason: "",
   });
 
-  const [editedProfile, setEditedProfile] = useState<CompanyProfileUI>({
-    name: "",
-    email: "",
-    phone: "",
-    website: "",
-    location: "",
-    industry: "",
-    size: "",
-    founded: "",
-    description: "",
-    benefits: [],
-  });
-
+  const [editedProfile, setEditedProfile] = useState<CompanyProfileUI>(profile);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [benefitInput, setBenefitInput] = useState("");
+
+  // ✅ Only APPROVED or ACTIVE companies can edit
+  // ✅ After save, backend returns status: PENDING so this becomes false immediately
+  const canEdit = profile.status === "APPROVED" || profile.status === "ACTIVE";
 
   useEffect(() => {
     loadProfile();
@@ -126,22 +197,27 @@ export default function CompanyProfile() {
     setSavingProfile(true);
     setError(null);
     try {
-      const payload = {
+      const payload: Record<string, any> = {
         companyName: editedProfile.name || undefined,
         phone: editedProfile.phone || undefined,
         url: editedProfile.website || undefined,
         location: editedProfile.location || undefined,
         industry: editedProfile.industry || undefined,
         companySize: editedProfile.size || undefined,
-        founded: editedProfile.founded
-          ? `${editedProfile.founded}-01-01`
-          : undefined,
         description: editedProfile.description || undefined,
-        benefitsAndPerks: editedProfile.benefits.join(", "),
+        benefitsAndPerks: editedProfile.benefits.join(", ") || undefined,
       };
+
+      if (editedProfile.founded?.match(/^\d{4}$/)) {
+        payload.founded = `${editedProfile.founded}-01-01`;
+      }
 
       const res = await api.patch("/companies/me", payload);
 
+      // ✅ Backend returns status: PENDING after edit
+      // ✅ toUI maps it into profile.status = "PENDING"
+      // ✅ canEdit becomes false → Edit button disappears immediately
+      // ✅ StatusBanner switches to yellow PENDING banner automatically
       const ui = toUI(res.data as CompanyMeApi);
       setProfile(ui);
       setEditedProfile(ui);
@@ -156,17 +232,16 @@ export default function CompanyProfile() {
   const handleCancelEdit = () => {
     setEditedProfile(profile);
     setIsEditingProfile(false);
+    setError(null);
   };
 
   const addBenefit = () => {
     const v = benefitInput.trim();
     if (!v) return;
-
     setEditedProfile((p) => ({
       ...p,
       benefits: Array.from(new Set([...(p.benefits || []), v])),
     }));
-
     setBenefitInput("");
   };
 
@@ -190,49 +265,59 @@ export default function CompanyProfile() {
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
-        {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground">Company Profile</h1>
+          <h1 className="text-3xl font-bold text-foreground">
+            Company Profile
+          </h1>
           <p className="text-muted-foreground mt-1">
             Manage your company information and details
           </p>
         </div>
 
-        {/* Profile Card */}
+        {/* ✅ Status banner — always visible, updates immediately after save */}
+        <StatusBanner
+          status={profile.status}
+          rejectionReason={profile.rejectionReason}
+        />
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Profile Information</CardTitle>
-            {isEditingProfile ? (
-              <div className="flex gap-2">
+            {/* ✅ Edit button only shows when APPROVED/ACTIVE */}
+            {/* ✅ Disappears immediately after save (status → PENDING) */}
+            {canEdit &&
+              (isEditingProfile ? (
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelEdit}
+                    disabled={savingProfile}
+                  >
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={handleSaveProfile}
+                    disabled={savingProfile}
+                  >
+                    <Save className="h-4 w-4 mr-1" />
+                    {savingProfile ? "Saving..." : "Save"}
+                  </Button>
+                </div>
+              ) : (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={handleCancelEdit}
-                  disabled={savingProfile}
+                  onClick={() => setIsEditingProfile(true)}
                 >
-                  <X className="h-4 w-4 mr-1" />
-                  Cancel
+                  <Edit3 className="h-4 w-4 mr-1" />
+                  Edit Profile
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSaveProfile}
-                  disabled={savingProfile}
-                >
-                  <Save className="h-4 w-4 mr-1" />
-                  {savingProfile ? "Saving..." : "Save"}
-                </Button>
-              </div>
-            ) : (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsEditingProfile(true)}
-              >
-                <Edit3 className="h-4 w-4 mr-1" />
-                Edit Profile
-              </Button>
-            )}
+              ))}
           </CardHeader>
+
           <CardContent className="space-y-6">
             {error && (
               <div className="p-3 border border-destructive/30 rounded-md bg-destructive/10">
@@ -253,7 +338,7 @@ export default function CompanyProfile() {
                 )}
               </div>
 
-              {/* Basic Info */}
+              {/* Basic Info Grid */}
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
@@ -272,32 +357,22 @@ export default function CompanyProfile() {
                   ) : (
                     <p className="text-foreground flex items-center gap-2 mt-1">
                       <Building2 className="h-4 w-4 text-muted-foreground" />
-                      {profile.name}
+                      {profile.name || "—"}
                     </p>
                   )}
                 </div>
+
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Email
                   </label>
-                  {isEditingProfile ? (
-                    <Input
-                      type="email"
-                      value={editedProfile.email}
-                      onChange={(e) =>
-                        setEditedProfile({
-                          ...editedProfile,
-                          email: e.target.value,
-                        })
-                      }
-                    />
-                  ) : (
-                    <p className="text-foreground flex items-center gap-2 mt-1">
-                      <Mail className="h-4 w-4 text-muted-foreground" />
-                      {profile.email}
-                    </p>
-                  )}
+                  {/* ✅ Email never editable — it's the login identity */}
+                  <p className="text-foreground flex items-center gap-2 mt-1">
+                    <Mail className="h-4 w-4 text-muted-foreground" />
+                    {profile.email || "—"}
+                  </p>
                 </div>
+
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Phone
@@ -315,10 +390,11 @@ export default function CompanyProfile() {
                   ) : (
                     <p className="text-foreground flex items-center gap-2 mt-1">
                       <Phone className="h-4 w-4 text-muted-foreground" />
-                      {profile.phone}
+                      {profile.phone || "—"}
                     </p>
                   )}
                 </div>
+
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Website
@@ -336,10 +412,11 @@ export default function CompanyProfile() {
                   ) : (
                     <p className="text-foreground flex items-center gap-2 mt-1">
                       <Globe className="h-4 w-4 text-muted-foreground" />
-                      {profile.website}
+                      {profile.website || "—"}
                     </p>
                   )}
                 </div>
+
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Location
@@ -357,10 +434,11 @@ export default function CompanyProfile() {
                   ) : (
                     <p className="text-foreground flex items-center gap-2 mt-1">
                       <MapPin className="h-4 w-4 text-muted-foreground" />
-                      {profile.location}
+                      {profile.location || "—"}
                     </p>
                   )}
                 </div>
+
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Industry
@@ -376,9 +454,12 @@ export default function CompanyProfile() {
                       }
                     />
                   ) : (
-                    <p className="text-foreground mt-1">{profile.industry}</p>
+                    <p className="text-foreground mt-1">
+                      {profile.industry || "—"}
+                    </p>
                   )}
                 </div>
+
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
                     Company Size
@@ -394,25 +475,32 @@ export default function CompanyProfile() {
                       }
                     />
                   ) : (
-                    <p className="text-foreground mt-1">{profile.size}</p>
+                    <p className="text-foreground mt-1">
+                      {profile.size || "—"}
+                    </p>
                   )}
                 </div>
+
                 <div>
                   <label className="text-sm font-medium text-muted-foreground">
-                    Founded
+                    Founded (Year)
                   </label>
                   {isEditingProfile ? (
                     <Input
                       value={editedProfile.founded}
-                      onChange={(e) =>
-                        setEditedProfile({
-                          ...editedProfile,
-                          founded: e.target.value,
-                        })
-                      }
+                      placeholder="e.g. 2010"
+                      maxLength={4}
+                      onChange={(e) => {
+                        const val = e.target.value
+                          .replace(/\D/g, "")
+                          .slice(0, 4);
+                        setEditedProfile({ ...editedProfile, founded: val });
+                      }}
                     />
                   ) : (
-                    <p className="text-foreground mt-1">{profile.founded}</p>
+                    <p className="text-foreground mt-1">
+                      {profile.founded || "—"}
+                    </p>
                   )}
                 </div>
               </div>
@@ -433,9 +521,12 @@ export default function CompanyProfile() {
                     })
                   }
                   rows={3}
+                  className="mt-1"
                 />
               ) : (
-                <p className="text-foreground mt-1">{profile.description}</p>
+                <p className="text-foreground mt-1">
+                  {profile.description || "—"}
+                </p>
               )}
             </div>
 
@@ -464,10 +555,8 @@ export default function CompanyProfile() {
                 </div>
               )}
 
-              {(
-                (isEditingProfile ? editedProfile.benefits : profile.benefits) ||
-                []
-              ).length === 0 ? (
+              {(isEditingProfile ? editedProfile.benefits : profile.benefits)
+                .length === 0 ? (
                 <p className="text-sm text-muted-foreground">
                   No benefits added yet.
                 </p>
