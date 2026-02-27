@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Loader2, Eye } from "lucide-react";
+import { Search, Loader2, Eye, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
@@ -63,6 +63,9 @@ export default function AdminJobs() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
+  const [locationFilter, setLocationFilter] = useState("all");
+  const [companyFilter, setCompanyFilter] = useState("all");
 
   const fetchJobs = async () => {
     setLoading(true);
@@ -80,14 +83,55 @@ export default function AdminJobs() {
     fetchJobs();
   }, []);
 
-  const filtered = jobs.filter((j) => {
-    const matchSearch = `${j.jobTitle} ${j.company.companyName}`
-      .toLowerCase()
-      .includes(search.toLowerCase());
-    // ✅ Fixed: direct comparison, SelectItem values are already uppercase
-    const matchStatus = statusFilter === "all" || j.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
+  // Derive unique filter options from data
+  const jobTypes = [
+    ...new Set(jobs.map((j) => j.jobType).filter(Boolean)),
+  ] as string[];
+  const locations = [
+    ...new Set(jobs.map((j) => j.location).filter(Boolean)),
+  ] as string[];
+  const companies = [
+    ...new Set(jobs.map((j) => j.company.companyName).filter(Boolean)),
+  ] as string[];
+
+  const hasActiveFilters =
+    search ||
+    statusFilter !== "all" ||
+    typeFilter !== "all" ||
+    locationFilter !== "all" ||
+    companyFilter !== "all";
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setTypeFilter("all");
+    setLocationFilter("all");
+    setCompanyFilter("all");
+  };
+
+  const filtered = jobs
+    .filter((j) => {
+      const matchSearch =
+        `${j.jobTitle} ${j.company.companyName} ${j.jobType} ${j.location}`
+          .toLowerCase()
+          .includes(search.toLowerCase());
+      const matchStatus = statusFilter === "all" || j.status === statusFilter;
+      const matchType = typeFilter === "all" || j.jobType === typeFilter;
+      const matchLocation =
+        locationFilter === "all" || j.location === locationFilter;
+      const matchCompany =
+        companyFilter === "all" || j.company.companyName === companyFilter;
+      return (
+        matchSearch && matchStatus && matchType && matchLocation && matchCompany
+      );
+    })
+    .sort((a, b) => {
+      if (a.status === "PENDING" && b.status !== "PENDING") return -1;
+      if (a.status !== "PENDING" && b.status === "PENDING") return 1;
+      return 0;
+    });
+
+  const pendingCount = jobs.filter((j) => j.status === "PENDING").length;
 
   return (
     <AdminLayout>
@@ -95,35 +139,106 @@ export default function AdminJobs() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between gap-4">
             <div>
-              <CardTitle>Job Management</CardTitle>
-              <CardDescription>Review and approve job postings</CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search jobs..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 w-64"
-                />
+              <div className="flex items-center gap-2">
+                {pendingCount > 0 && (
+                  <Badge className="bg-yellow-500 text-white text-xs">
+                    {pendingCount} Pending
+                  </Badge>
+                )}
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                {/* ✅ Fixed: values are uppercase to match Status type directly */}
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="PENDING">Pending</SelectItem>
-                  <SelectItem value="APPROVED">Approved</SelectItem>
-                  <SelectItem value="REJECTED">Rejected</SelectItem>
-                  <SelectItem value="SUSPENDED">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
+
+          {/* Filters Row */}
+          <div className="flex flex-wrap gap-2 pt-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search jobs..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 w-56"
+              />
+            </div>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="SUSPENDED">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {jobTypes.length > 0 && (
+              <Select value={typeFilter} onValueChange={setTypeFilter}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Job Type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Types</SelectItem>
+                  {jobTypes.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {locations.length > 0 && (
+              <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {locations.map((loc) => (
+                    <SelectItem key={loc} value={loc}>
+                      {loc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {companies.length > 0 && (
+              <Select value={companyFilter} onValueChange={setCompanyFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Company" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Companies</SelectItem>
+                  {companies.map((c) => (
+                    <SelectItem key={c} value={c}>
+                      {c}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-10 px-3 text-muted-foreground"
+              >
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground pt-1">
+            Showing {filtered.length} of {jobs.length} jobs
+          </p>
         </CardHeader>
+
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-12">
@@ -136,6 +251,7 @@ export default function AdminJobs() {
                   <TableHead>Job Title</TableHead>
                   <TableHead>Company</TableHead>
                   <TableHead>Type</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Posted</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Reason</TableHead>
@@ -148,13 +264,14 @@ export default function AdminJobs() {
                     <TableCell className="font-medium">{j.jobTitle}</TableCell>
                     <TableCell>{j.company.companyName}</TableCell>
                     <TableCell>{j.jobType}</TableCell>
+                    <TableCell>{j.location}</TableCell>
                     <TableCell>
                       {new Date(j.jobDate).toLocaleDateString()}
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={j.status} />
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">
+                    <TableCell className="text-sm text-muted-foreground max-w-[140px] truncate">
                       {j.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
@@ -173,7 +290,7 @@ export default function AdminJobs() {
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="text-center text-muted-foreground py-8"
                     >
                       No jobs found

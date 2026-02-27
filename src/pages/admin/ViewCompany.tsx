@@ -34,6 +34,7 @@ import {
   Globe,
   Loader2,
   Calendar,
+  Gift,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
@@ -49,6 +50,7 @@ interface ApiCompany {
   companySize?: string;
   location?: string;
   description?: string;
+  benefitsAndPerks?: string; // ✅ added
   url?: string;
   founded?: string;
   profilePic?: string;
@@ -72,11 +74,6 @@ function StatusBadge({ status }: { status: Status }) {
   );
 }
 
-// ─── State machine ─────────────────────────────────────────────────────────────
-// PENDING   → Approve ✅  | Reject ✅  | Suspend ✗
-// APPROVED  → Approve ✗   | Reject ✗   | Suspend ✅
-// REJECTED  → Approve ✅  | Reject ✗   | Suspend ✗
-// SUSPENDED → Approve ✅  | Reject ✅  | Suspend ✗
 function getAllowedActions(status: Status) {
   return {
     canApprove:
@@ -201,7 +198,6 @@ export default function ViewCompany() {
             </p>
           </div>
 
-          {/* Action buttons — shown only when allowed by state machine */}
           <div className="flex gap-2 flex-wrap">
             {canApprove && (
               <Button
@@ -244,7 +240,7 @@ export default function ViewCompany() {
           </div>
         </div>
 
-        {/* Status banner */}
+        {/* Status banners */}
         {company.status === "REJECTED" && company.rejectionReason && (
           <div className="rounded-lg px-4 py-3 text-sm border bg-red-500/10 border-red-500/20 text-red-700">
             <span className="font-medium">Rejected: </span>
@@ -341,6 +337,7 @@ export default function ViewCompany() {
                 )}
               </div>
 
+              {/* Description */}
               {company.description && (
                 <>
                   <Separator />
@@ -351,6 +348,23 @@ export default function ViewCompany() {
                     <p className="text-sm leading-relaxed">
                       {company.description}
                     </p>
+                  </div>
+                </>
+              )}
+
+              {/* ✅ Benefits & Perks */}
+              {company.benefitsAndPerks && (
+                <>
+                  <Separator />
+                  <div>
+                    <p className="text-sm text-muted-foreground mb-1">
+                      Benefits & Perks
+                    </p>
+                    <ul className="list-disc list-inside space-y-1 text-sm">
+                      {company.benefitsAndPerks.split(",").map((perk, i) => (
+                        <li key={i}>{perk.trim()}</li>
+                      ))}
+                    </ul>
                   </div>
                 </>
               )}
@@ -402,7 +416,12 @@ export default function ViewCompany() {
                       key={job.id}
                       className="flex items-center justify-between text-sm"
                     >
-                      <span className="truncate flex-1">{job.jobTitle}</span>
+                      <Link
+                        to={`/admin/jobs/${job.id}`}
+                        className="truncate flex-1 hover:underline text-primary"
+                      >
+                        {job.jobTitle}
+                      </Link>
                       <Badge
                         variant="outline"
                         className="ml-2 text-xs shrink-0"

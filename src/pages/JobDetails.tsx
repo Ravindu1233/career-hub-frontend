@@ -71,14 +71,20 @@ function extractSkills(requirements?: string) {
 
 function splitToList(text?: string) {
   if (!text) return [];
+  // First try splitting by newlines or bullet chars
   const parts = text
     .split(/\n|•|-/g)
     .map((s) => s.trim())
     .filter(Boolean);
-  if (parts.length === 1 && parts[0].length > 140) return [parts[0]];
+  // If it came back as a single long string, split by sentences instead
+  if (parts.length === 1 && parts[0].length > 60) {
+    return parts[0]
+      .split(/(?<=\.)\s+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+  }
   return parts;
 }
-
 function formatDateShort(dateString?: string) {
   if (!dateString) return "—";
   const d = new Date(dateString);
@@ -176,13 +182,26 @@ export default function JobDetails() {
     () => String(jobRaw?.jobDescription ?? ""),
     [jobRaw],
   );
-  const responsibilities = useMemo(() => [], [jobRaw]);
+  // WITH THIS:
+  const responsibilities = useMemo(
+    () =>
+      Array.isArray(jobRaw?.responsibilities)
+        ? jobRaw.responsibilities.filter(Boolean)
+        : [],
+    [jobRaw],
+  );
   const requirementsList = useMemo(
-    () => splitToList(String(jobRaw?.requirements ?? "")),
+    () =>
+      Array.isArray(jobRaw?.requirements)
+        ? jobRaw.requirements.filter(Boolean) // if you migrate to array later
+        : splitToList(String(jobRaw?.requirements ?? "")), // current string field
     [jobRaw],
   );
   const skills = useMemo(
-    () => extractSkills(String(jobRaw?.requirements ?? "")),
+    () =>
+      Array.isArray(jobRaw?.requiredSkills) && jobRaw.requiredSkills.length > 0
+        ? jobRaw.requiredSkills.filter(Boolean) // ✅ use the real DB array field
+        : extractSkills(String(jobRaw?.requirements ?? "")), // fallback
     [jobRaw],
   );
 
@@ -297,7 +316,7 @@ export default function JobDetails() {
                   </h1>
                   <div className="flex items-center gap-3 flex-wrap">
                     <Link
-                      to="#"
+                      to={`/companies/${jobRaw?.company?.companyId}`}
                       className="text-lg text-primary hover:underline"
                     >
                       {companyName}
@@ -513,29 +532,6 @@ export default function JobDetails() {
                       )}
                     </div>
                   </div>
-
-                  {companyBenefits.length > 0 && (
-                    <div>
-                      <h2 className="text-xl font-semibold text-foreground mb-4">
-                        Benefits
-                      </h2>
-                      <div className="grid sm:grid-cols-2 gap-4">
-                        {companyBenefits.map((text, index) => (
-                          <div
-                            key={index}
-                            className="flex items-center gap-3 p-4 rounded-xl bg-muted/50"
-                          >
-                            <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
-                              <CheckCircle className="h-5 w-5 text-primary" />
-                            </div>
-                            <span className="text-sm text-foreground">
-                              {text}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               )}
 
@@ -645,8 +641,10 @@ export default function JobDetails() {
                       </p>
                     </div>
                   </div>
-                  <Button variant="outline" className="w-full" type="button">
-                    View Company Profile
+                  <Button variant="outline" className="w-full" asChild>
+                    <Link to={`/companies/${jobRaw?.company?.companyId}`}>
+                      View Company Profile
+                    </Link>
                   </Button>
                 </div>
 

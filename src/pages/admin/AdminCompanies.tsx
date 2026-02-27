@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Loader2, Eye } from "lucide-react";
+import { Search, Loader2, Eye, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
@@ -39,6 +39,7 @@ interface ApiCompany {
   phone?: string;
   industry?: string;
   companySize?: string;
+  location?: string;
   status: Status;
   rejectionReason?: string;
 }
@@ -63,6 +64,9 @@ export default function AdminCompanies() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [industryFilter, setIndustryFilter] = useState("all");
+  const [sizeFilter, setSizeFilter] = useState("all");
+  const [locationFilter, setLocationFilter] = useState("all");
 
   const fetchCompanies = async () => {
     setLoading(true);
@@ -80,14 +84,59 @@ export default function AdminCompanies() {
     fetchCompanies();
   }, []);
 
-  const filtered = companies.filter((c) => {
-    const matchSearch = `${c.companyName} ${c.email}`
-      .toLowerCase()
-      .includes(search.toLowerCase());
-    const matchStatus =
-      statusFilter === "all" || c.status === statusFilter.toUpperCase();
-    return matchSearch && matchStatus;
-  });
+  // Derive unique filter options from data
+  const industries = [
+    ...new Set(companies.map((c) => c.industry).filter(Boolean)),
+  ] as string[];
+  const sizes = [
+    ...new Set(companies.map((c) => c.companySize).filter(Boolean)),
+  ] as string[];
+  const locations = [
+    ...new Set(companies.map((c) => c.location).filter(Boolean)),
+  ] as string[];
+
+  const hasActiveFilters =
+    search ||
+    statusFilter !== "all" ||
+    industryFilter !== "all" ||
+    sizeFilter !== "all" ||
+    locationFilter !== "all";
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setIndustryFilter("all");
+    setSizeFilter("all");
+    setLocationFilter("all");
+  };
+
+  const filtered = companies
+    .filter((c) => {
+      const matchSearch =
+        `${c.companyName} ${c.email} ${c.industry ?? ""} ${c.location ?? ""}`
+          .toLowerCase()
+          .includes(search.toLowerCase());
+      const matchStatus = statusFilter === "all" || c.status === statusFilter;
+      const matchIndustry =
+        industryFilter === "all" || c.industry === industryFilter;
+      const matchSize = sizeFilter === "all" || c.companySize === sizeFilter;
+      const matchLocation =
+        locationFilter === "all" || c.location === locationFilter;
+      return (
+        matchSearch &&
+        matchStatus &&
+        matchIndustry &&
+        matchSize &&
+        matchLocation
+      );
+    })
+    .sort((a, b) => {
+      if (a.status === "PENDING" && b.status !== "PENDING") return -1;
+      if (a.status !== "PENDING" && b.status === "PENDING") return 1;
+      return 0;
+    });
+
+  const pendingCount = companies.filter((c) => c.status === "PENDING").length;
 
   return (
     <AdminLayout>
@@ -95,36 +144,106 @@ export default function AdminCompanies() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between gap-4">
             <div>
-              <CardTitle>Company Management</CardTitle>
-              <CardDescription>
-                Review and manage registered companies
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search companies..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 w-64"
-                />
+              <div className="flex items-center gap-2">
+                {pendingCount > 0 && (
+                  <Badge className="bg-yellow-500 text-white text-xs">
+                    {pendingCount} Pending
+                  </Badge>
+                )}
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
+
+          {/* Filters Row */}
+          <div className="flex flex-wrap gap-2 pt-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search companies..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 w-56"
+              />
+            </div>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="SUSPENDED">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {industries.length > 0 && (
+              <Select value={industryFilter} onValueChange={setIndustryFilter}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Industry" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Industries</SelectItem>
+                  {industries.map((ind) => (
+                    <SelectItem key={ind} value={ind}>
+                      {ind}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {sizes.length > 0 && (
+              <Select value={sizeFilter} onValueChange={setSizeFilter}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Size" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Sizes</SelectItem>
+                  {sizes.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {locations.length > 0 && (
+              <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {locations.map((loc) => (
+                    <SelectItem key={loc} value={loc}>
+                      {loc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-10 px-3 text-muted-foreground"
+              >
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground pt-1">
+            Showing {filtered.length} of {companies.length} companies
+          </p>
         </CardHeader>
+
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-12">
@@ -137,6 +256,7 @@ export default function AdminCompanies() {
                   <TableHead>Company</TableHead>
                   <TableHead>Industry</TableHead>
                   <TableHead>Size</TableHead>
+                  <TableHead>Location</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Reason</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -151,6 +271,7 @@ export default function AdminCompanies() {
                     </TableCell>
                     <TableCell>{c.industry ?? "—"}</TableCell>
                     <TableCell>{c.companySize ?? "—"}</TableCell>
+                    <TableCell>{c.location ?? "—"}</TableCell>
                     <TableCell>
                       <StatusBadge status={c.status} />
                     </TableCell>
@@ -158,7 +279,6 @@ export default function AdminCompanies() {
                       {c.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {/* ✅ Only View — all actions are on the detail page */}
                       <Link to={`/admin/companies/${c.companyId}`}>
                         <Button
                           variant="ghost"
@@ -174,7 +294,7 @@ export default function AdminCompanies() {
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={6}
+                      colSpan={7}
                       className="text-center text-muted-foreground py-8"
                     >
                       No companies found

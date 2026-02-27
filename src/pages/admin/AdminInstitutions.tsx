@@ -26,7 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Loader2, Eye } from "lucide-react";
+import { Search, Loader2, Eye, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
@@ -62,6 +62,7 @@ export default function AdminInstitutions() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [locationFilter, setLocationFilter] = useState("all");
 
   const fetchInstitutions = async () => {
     setLoading(true);
@@ -79,14 +80,40 @@ export default function AdminInstitutions() {
     fetchInstitutions();
   }, []);
 
-  const filtered = institutions.filter((i) => {
-    const matchSearch = `${i.name} ${i.email}`
-      .toLowerCase()
-      .includes(search.toLowerCase());
-    const matchStatus =
-      statusFilter === "all" || i.status === statusFilter.toUpperCase();
-    return matchSearch && matchStatus;
-  });
+  // Derive unique filter options from data
+  const locations = [
+    ...new Set(institutions.map((i) => i.location).filter(Boolean)),
+  ] as string[];
+
+  const hasActiveFilters =
+    search || statusFilter !== "all" || locationFilter !== "all";
+
+  const clearFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setLocationFilter("all");
+  };
+
+  const filtered = institutions
+    .filter((i) => {
+      const matchSearch =
+        `${i.name} ${i.email} ${i.location ?? ""} ${i.user.email}`
+          .toLowerCase()
+          .includes(search.toLowerCase());
+      const matchStatus = statusFilter === "all" || i.status === statusFilter;
+      const matchLocation =
+        locationFilter === "all" || i.location === locationFilter;
+      return matchSearch && matchStatus && matchLocation;
+    })
+    .sort((a, b) => {
+      if (a.status === "PENDING" && b.status !== "PENDING") return -1;
+      if (a.status !== "PENDING" && b.status === "PENDING") return 1;
+      return 0;
+    });
+
+  const pendingCount = institutions.filter(
+    (i) => i.status === "PENDING",
+  ).length;
 
   return (
     <AdminLayout>
@@ -94,36 +121,74 @@ export default function AdminInstitutions() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between gap-4">
             <div>
-              <CardTitle>Institution Management</CardTitle>
-              <CardDescription>
-                Review and approve educational institutions
-              </CardDescription>
-            </div>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search institutions..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-10 w-64"
-                />
+              <div className="flex items-center gap-2">
+                {pendingCount > 0 && (
+                  <Badge className="bg-yellow-500 text-white text-xs">
+                    {pendingCount} Pending
+                  </Badge>
+                )}
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-36">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="approved">Approved</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                  <SelectItem value="suspended">Suspended</SelectItem>
-                </SelectContent>
-              </Select>
             </div>
           </div>
+
+          {/* Filters Row */}
+          <div className="flex flex-wrap gap-2 pt-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search institutions..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-10 w-56"
+              />
+            </div>
+
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-36">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Status</SelectItem>
+                <SelectItem value="PENDING">Pending</SelectItem>
+                <SelectItem value="APPROVED">Approved</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
+                <SelectItem value="SUSPENDED">Suspended</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {locations.length > 0 && (
+              <Select value={locationFilter} onValueChange={setLocationFilter}>
+                <SelectTrigger className="w-36">
+                  <SelectValue placeholder="Location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                  {locations.map((loc) => (
+                    <SelectItem key={loc} value={loc}>
+                      {loc}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+
+            {hasActiveFilters && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={clearFilters}
+                className="h-10 px-3 text-muted-foreground"
+              >
+                <X className="h-4 w-4 mr-1" /> Clear
+              </Button>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground pt-1">
+            Showing {filtered.length} of {institutions.length} institutions
+          </p>
         </CardHeader>
+
         <CardContent>
           {loading ? (
             <div className="flex justify-center py-12">
@@ -157,7 +222,6 @@ export default function AdminInstitutions() {
                       {i.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
-                      {/* ✅ View only — all actions on detail page */}
                       <Link to={`/admin/institutions/${i.id}`}>
                         <Button
                           variant="ghost"
