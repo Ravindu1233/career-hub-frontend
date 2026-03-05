@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import {
   X,
   Calendar,
   Plus,
+  ArrowLeft,
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -121,6 +123,7 @@ function formatDate(iso?: string) {
 // =============================
 export default function UserProfile() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const [isEditing, setIsEditing] = useState(false);
   const [newSkill, setNewSkill] = useState("");
@@ -275,10 +278,17 @@ export default function UserProfile() {
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground">My Profile</h1>
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/user/dashboard")}
+              className="gap-2 mb-4"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
             <p className="text-muted-foreground mt-1">
               Manage your personal information and preferences
             </p>
-
             {userLoading && (
               <p className="text-xs text-muted-foreground mt-2">Loading...</p>
             )}
@@ -474,9 +484,7 @@ export default function UserProfile() {
                   {isEditing ? (
                     <Input
                       type="date"
-                      value={
-                        safeEdited.dob ? safeEdited.dob.split("T")[0] : ""
-                      }
+                      value={safeEdited.dob ? safeEdited.dob.split("T")[0] : ""}
                       onChange={(e) =>
                         setEditedProfile({
                           ...safeEdited,
@@ -509,9 +517,7 @@ export default function UserProfile() {
                   placeholder="Tell us about yourself..."
                 />
               ) : (
-                <p className="text-foreground mt-1">
-                  {safeProfile.bio || "-"}
-                </p>
+                <p className="text-foreground mt-1">{safeProfile.bio || "-"}</p>
               )}
             </div>
 

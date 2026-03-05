@@ -12,6 +12,8 @@ import {
   Bell,
   Settings,
   TrendingUp,
+  CheckCircle2,
+  Circle,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -32,6 +34,14 @@ type BackendUser = {
   firstName?: string | null;
   lastName?: string | null;
   profilePic?: string | null;
+  mobile?: string | null;
+  address?: string | null;
+  bio?: string | null;
+  skills?: string[] | null;
+  schools?: string | null;
+  dob?: string | null;
+  certifications?: string[];
+  olPassCount?: number | null;
 };
 
 type BackendApplication = {
@@ -60,6 +70,72 @@ function normalizeStatus(status: string) {
   if (s === "REJECTED") return "rejected";
   if (s === "ACCEPTED") return "accepted";
   return "under_review";
+}
+
+// =============================
+// Profile Strength Calculator
+// =============================
+type ProfileCheckItem = {
+  label: string;
+  done: boolean;
+};
+
+function calcProfileStrength(user: BackendUser | undefined): {
+  percent: number;
+  checks: ProfileCheckItem[];
+} {
+  const checks: ProfileCheckItem[] = [
+    {
+      label: "Basic information added",
+      done: !!(user?.firstName?.trim() || user?.lastName?.trim()),
+    },
+    {
+      label: "Contact details added",
+      done: !!user?.mobile?.trim(),
+    },
+    {
+      label: "Location added",
+      done: !!user?.address?.trim(),
+    },
+    {
+      label: "Bio written",
+      done: !!user?.bio?.trim(),
+    },
+    {
+      label: "Skills added",
+      done: Array.isArray(user?.skills) && user.skills.length > 0,
+    },
+    {
+      label: "Certifications added",
+      done:
+        Array.isArray(user?.certifications) && user.certifications.length > 0,
+    },
+    {
+      label: "Education added",
+      done: !!user?.schools?.trim(),
+    },
+    {
+      label: "Profile photo uploaded",
+      done: !!user?.profilePic,
+    },
+  ];
+
+  const done = checks.filter((c) => c.done).length;
+  const percent = Math.round((done / checks.length) * 100);
+
+  return { percent, checks };
+}
+
+function strengthLabel(percent: number): { text: string; color: string } {
+  if (percent >= 80) return { text: "Strong", color: "text-green-600" };
+  if (percent >= 50) return { text: "Good", color: "text-yellow-600" };
+  return { text: "Needs work", color: "text-red-500" };
+}
+
+function strengthBarColor(percent: number): string {
+  if (percent >= 80) return "bg-green-500";
+  if (percent >= 50) return "bg-yellow-500";
+  return "bg-red-500";
 }
 
 // =============================
@@ -105,11 +181,27 @@ export default function UserDashboard() {
     },
   });
 
+  const { data: savedJobs } = useQuery({
+    queryKey: ["saved-jobs"],
+    queryFn: async () => {
+      const res = await api.get("/saved-jobs");
+      return (res.data ?? []) as any[];
+    },
+  });
+
   const apps = applications ?? [];
   const insts = institutions ?? [];
 
   const userName =
     `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim() || "User";
+
+  const { percent, checks } = calcProfileStrength(user);
+  const { text: strengthText, color: strengthColor } = strengthLabel(percent);
+  const barColor = strengthBarColor(percent);
+
+  // Show top incomplete items (max 3) so the card stays compact
+  const incompleteChecks = checks.filter((c) => !c.done).slice(0, 3);
+  const completedCount = checks.filter((c) => c.done).length;
 
   return (
     <MainLayout>
@@ -132,14 +224,6 @@ export default function UserDashboard() {
                 Failed to load dashboard data.
               </p>
             )}
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" size="icon">
-              <Bell className="h-5 w-5" />
-            </Button>
-            <Button variant="outline" size="icon">
-              <Settings className="h-5 w-5" />
-            </Button>
           </div>
         </div>
 
@@ -187,7 +271,9 @@ export default function UserDashboard() {
                     <BookmarkCheck className="h-6 w-6 text-warning" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold">0</p>
+                    <p className="text-2xl font-bold">
+                      {savedJobs?.length ?? 0}
+                    </p>
                     <p className="text-sm text-muted-foreground">Saved Jobs</p>
                   </div>
                 </div>
@@ -266,7 +352,7 @@ export default function UserDashboard() {
             </CardContent>
           </Card>
 
-          {/* Profile Completion */}
+          {/* Profile Strength — now uses real data */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -281,44 +367,75 @@ export default function UserDashboard() {
               </Link>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                <div>
-                  <div className="flex justify-between mb-2">
-                    <span className="text-sm font-medium">
-                      Profile Completion
-                    </span>
-                    <span className="text-sm text-muted-foreground">75%</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-primary rounded-full"
-                      style={{ width: "75%" }}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground">
-                    Complete your profile to increase your visibility to
-                    employers
-                  </p>
-                  <ul className="text-sm space-y-1">
-                    <li className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <span>Basic information added</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-green-500" />
-                      <span>Contact details added</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <div className="h-2 w-2 rounded-full bg-muted" />
-                      <span className="text-muted-foreground">
-                        Add skills and certifications
+              {userLoading ? (
+                <p className="text-sm text-muted-foreground">Loading...</p>
+              ) : (
+                <div className="space-y-4">
+                  {/* Bar */}
+                  <div>
+                    <div className="flex justify-between mb-2">
+                      <span className="text-sm font-medium">
+                        Profile Completion
                       </span>
-                    </li>
-                  </ul>
+                      <span
+                        className={`text-sm font-semibold ${strengthColor}`}
+                      >
+                        {percent}% — {strengthText}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-500 ${barColor}`}
+                        style={{ width: `${percent}%` }}
+                      />
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {completedCount} of {checks.length} items completed
+                    </p>
+                  </div>
+
+                  {/* Checklist */}
+                  <div className="space-y-1">
+                    {/* Show all completed items first (up to 3) */}
+                    {checks
+                      .filter((c) => c.done)
+                      .slice(0, 3)
+                      .map((c) => (
+                        <div
+                          key={c.label}
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <CheckCircle2 className="h-4 w-4 text-green-500 shrink-0" />
+                          <span>{c.label}</span>
+                        </div>
+                      ))}
+
+                    {/* Then show incomplete items (up to 3) */}
+                    {incompleteChecks.map((c) => (
+                      <div
+                        key={c.label}
+                        className="flex items-center gap-2 text-sm text-muted-foreground"
+                      >
+                        <Circle className="h-4 w-4 shrink-0" />
+                        <span>{c.label}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {percent < 100 && (
+                    <p className="text-xs text-muted-foreground">
+                      Complete your profile to increase your visibility to
+                      employers.
+                    </p>
+                  )}
+
+                  {percent === 100 && (
+                    <p className="text-xs text-green-600 font-medium">
+                      🎉 Your profile is 100% complete!
+                    </p>
+                  )}
                 </div>
-              </div>
+              )}
             </CardContent>
           </Card>
         </div>

@@ -1,7 +1,9 @@
+import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MapPin, Clock, Bookmark, Building2, DollarSign } from "lucide-react";
+import { MapPin, Clock, Bookmark, Building2 } from "lucide-react";
+import { api } from "@/lib/api";
 
 export interface Job {
   id: string;
@@ -21,7 +23,52 @@ interface JobCardProps {
   job: Job;
 }
 
+// Check if the user is logged in as a USER (has a JWT token)
+function isUserLoggedIn(): boolean {
+  const token =
+    localStorage.getItem("token") || sessionStorage.getItem("token");
+  return !!token;
+}
+
 export function JobCard({ job }: JobCardProps) {
+  const [saved, setSaved] = useState(false);
+  const [savingLoading, setSavingLoading] = useState(false);
+  const loggedIn = isUserLoggedIn();
+
+  // Check initial saved status on mount (only if logged in)
+  useEffect(() => {
+    if (!loggedIn) return;
+    api
+      .get(`/saved-jobs/${job.id}/status`)
+      .then((res) => setSaved(res.data?.isSaved ?? false))
+      .catch(() => {}); // silently ignore — user might not be a USER role
+  }, [job.id, loggedIn]);
+
+  const handleBookmark = async (e: React.MouseEvent) => {
+    e.preventDefault(); // prevent navigating to job detail
+    e.stopPropagation();
+
+    if (!loggedIn) {
+      window.location.href = "/login";
+      return;
+    }
+
+    setSavingLoading(true);
+    try {
+      if (saved) {
+        await api.delete(`/saved-jobs/${job.id}`);
+        setSaved(false);
+      } else {
+        await api.post(`/saved-jobs/${job.id}`);
+        setSaved(true);
+      }
+    } catch {
+      // silently ignore — e.g. company/admin accounts can't save jobs
+    } finally {
+      setSavingLoading(false);
+    }
+  };
+
   return (
     <div className="group relative bg-card rounded-2xl border border-border/50 p-6 shadow-card transition-all duration-300 hover:shadow-xl hover:-translate-y-1 hover:border-primary/20">
       {/* Featured badge */}
@@ -47,8 +94,20 @@ export function JobCard({ job }: JobCardProps) {
         </div>
 
         {/* Bookmark button */}
-        <button className="absolute top-6 right-6 p-2 rounded-lg text-muted-foreground hover:text-warning hover:bg-warning/10 transition-colors">
-          <Bookmark className="h-5 w-5" />
+        <button
+          onClick={handleBookmark}
+          disabled={savingLoading}
+          title={saved ? "Remove from saved" : "Save job"}
+          className={`absolute top-6 right-6 p-2 rounded-lg transition-colors
+            ${
+              saved
+                ? "text-warning bg-warning/10 hover:bg-warning/20"
+                : "text-muted-foreground hover:text-warning hover:bg-warning/10"
+            }
+            ${savingLoading ? "opacity-50 cursor-not-allowed" : ""}
+          `}
+        >
+          <Bookmark className={`h-5 w-5 ${saved ? "fill-current" : ""}`} />
         </button>
 
         {/* Info */}
@@ -103,7 +162,6 @@ export function JobCard({ job }: JobCardProps) {
             {job.salary}
           </span>
         </div>
-
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
           <Clock className="h-3.5 w-3.5" />
           <span>{job.postedAt}</span>

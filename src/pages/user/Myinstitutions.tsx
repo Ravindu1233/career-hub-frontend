@@ -92,20 +92,19 @@ export default function MyInstitutions() {
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
-        <Button
-          variant="ghost"
-          onClick={() => navigate("/user/dashboard")}
-          className="gap-2 mb-4"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
-        </Button>
-
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-foreground">
               My Institutions
             </h1>
+            <Button
+              variant="ghost"
+              onClick={() => navigate("/user/dashboard")}
+              className="gap-2 mb-4"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Button>
             <p className="text-muted-foreground mt-1">
               Manage your educational institutions and their courses
             </p>

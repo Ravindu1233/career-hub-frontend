@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ import {
   Phone,
   MapPin as LocationIcon,
   Eye,
+  ArrowLeft,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -157,6 +158,7 @@ const getInterviewIcon = (type: string) => {
 // =============================
 export default function MyApplications() {
   const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedInterview, setSelectedInterview] = useState<Interview | null>(
     null,
@@ -227,6 +229,14 @@ export default function MyApplications() {
           <h1 className="text-3xl font-bold text-foreground">
             My Applications
           </h1>
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/user/dashboard")}
+            className="gap-2 mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
           <p className="text-muted-foreground mt-1">
             Track and manage all your job applications
           </p>

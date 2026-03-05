@@ -103,6 +103,7 @@ export default function JobDetails() {
     "overview" | "company" | "similar"
   >("overview");
   const [saved, setSaved] = useState(false);
+  const [savingLoading, setSavingLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>("");
 
@@ -177,6 +178,40 @@ export default function JobDetails() {
       alive = false;
     };
   }, [id]);
+
+  useEffect(() => {
+    if (!id) return;
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token) return;
+    api
+      .get(`/saved-jobs/${id}/status`)
+      .then((res) => setSaved(res.data?.isSaved ?? false))
+      .catch(() => {});
+  }, [id]);
+
+  const handleSaveToggle = async () => {
+    const token =
+      localStorage.getItem("token") || sessionStorage.getItem("token");
+    if (!token) {
+      window.location.href = "/login";
+      return;
+    }
+    setSavingLoading(true);
+    try {
+      if (saved) {
+        await api.delete(`/saved-jobs/${id}`);
+        setSaved(false);
+      } else {
+        await api.post(`/saved-jobs/${id}`);
+        setSaved(true);
+      }
+    } catch {
+      // silently ignore
+    } finally {
+      setSavingLoading(false);
+    }
+  };
 
   const description = useMemo(
     () => String(jobRaw?.jobDescription ?? ""),
@@ -369,7 +404,8 @@ export default function JobDetails() {
                   variant="outline"
                   size="lg"
                   className={`flex-1 ${saved ? "text-warning border-warning" : ""}`}
-                  onClick={() => setSaved(!saved)}
+                  onClick={handleSaveToggle}
+                  disabled={savingLoading}
                   type="button"
                 >
                   <Bookmark
