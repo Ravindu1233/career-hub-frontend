@@ -50,6 +50,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 type ApplicationFromAPI = {
   id: string;
   jobId: string;
@@ -77,6 +79,28 @@ type ApplicationFromAPI = {
     olPassCount: number | null;
   };
 };
+
+function toPublicResumeUrl(cvPath?: string | null) {
+  if (!cvPath) return "";
+
+  if (/^https?:\/\//i.test(cvPath)) return cvPath;
+
+  const normalized = cvPath.replace(/\\/g, "/");
+  const lower = normalized.toLowerCase();
+
+  const withLeadingUploads = lower.indexOf("/uploads/");
+  if (withLeadingUploads >= 0) {
+    return `${API_BASE}${normalized.slice(withLeadingUploads)}`;
+  }
+
+  const withoutLeadingUploads = lower.indexOf("uploads/");
+  if (withoutLeadingUploads >= 0) {
+    return `${API_BASE}/${normalized.slice(withoutLeadingUploads)}`;
+  }
+
+  const fileName = normalized.split("/").filter(Boolean).pop();
+  return fileName ? `${API_BASE}/uploads/cvs/${fileName}` : "";
+}
 
 const statusConfig = {
   PENDING: {
@@ -166,6 +190,10 @@ export default function CompanyApplications() {
   // ✅ Handle interview scheduling - Updated to use /interviews endpoint
   const handleScheduleInterview = async () => {
     if (!selectedApplication) return;
+    if (String(selectedApplication.status || "").toUpperCase() !== "SHORTLISTED") {
+      toast.error("Interview can only be scheduled for shortlisted candidates");
+      return;
+    }
 
     // Validation
     if (!interviewData.interviewDate || !interviewData.interviewTime) {
@@ -235,6 +263,15 @@ export default function CompanyApplications() {
     shortlisted: applications.filter((a) => a.status === "SHORTLISTED").length,
     interviewed: applications.filter((a) => a.status === "INTERVIEW_SCHEDULED")
       .length,
+  };
+
+  const openResume = (cvPath?: string | null) => {
+    const resumeUrl = toPublicResumeUrl(cvPath);
+    if (!resumeUrl) {
+      toast.error("Resume file path is not available");
+      return;
+    }
+    window.open(resumeUrl, "_blank", "noopener,noreferrer");
   };
 
   return (
@@ -606,12 +643,11 @@ export default function CompanyApplications() {
                                           <Button
                                             variant="outline"
                                             className="gap-2"
-                                            onClick={() => {
-                                              window.open(
-                                                `${import.meta.env.VITE_API_URL}/${selectedApplication.cvPath}`,
-                                                "_blank",
-                                              );
-                                            }}
+                                            onClick={() =>
+                                              openResume(
+                                                selectedApplication.cvPath,
+                                              )
+                                            }
                                           >
                                             <Download className="h-4 w-4" />
                                             Download Resume
@@ -629,50 +665,72 @@ export default function CompanyApplications() {
                                           <Button
                                             variant="outline"
                                             className="gap-2"
-                                            onClick={() =>
-                                              setIsScheduleInterviewOpen(true)
+                                            onClick={() => setIsScheduleInterviewOpen(true)}
+                                            disabled={
+                                              String(
+                                                selectedApplication.status || "",
+                                              ).toUpperCase() !== "SHORTLISTED"
                                             }
                                           >
                                             <Calendar className="h-4 w-4" />
                                             Schedule Interview
                                           </Button>
                                         </div>
+                                        {String(
+                                          selectedApplication.status || "",
+                                        ).toUpperCase() !== "SHORTLISTED" && (
+                                          <p className="text-sm text-muted-foreground">
+                                            Interview scheduling is available only for shortlisted candidates.
+                                          </p>
+                                        )}
 
                                         {/* Status Update */}
                                         <div className="pt-4 border-t border-border">
                                           <h4 className="font-medium text-foreground mb-3">
                                             Update Status
                                           </h4>
-                                          <div className="flex flex-wrap gap-2">
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() =>
-                                                handleStatusChange(
-                                                  selectedApplication.id,
-                                                  "SHORTLISTED",
-                                                )
-                                              }
-                                              className="bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500/20"
-                                            >
-                                              <TrendingUp className="h-4 w-4 mr-1" />
-                                              Shortlist
-                                            </Button>
-                                            <Button
-                                              size="sm"
-                                              variant="outline"
-                                              onClick={() =>
-                                                handleStatusChange(
-                                                  selectedApplication.id,
-                                                  "REJECTED",
-                                                )
-                                              }
-                                              className="bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20"
-                                            >
-                                              <XCircle className="h-4 w-4 mr-1" />
-                                              Reject
-                                            </Button>
-                                          </div>
+                                          {String(
+                                            selectedApplication.status || "",
+                                          ).toUpperCase() === "PENDING" ? (
+                                            <div className="flex flex-wrap gap-2">
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                  handleStatusChange(
+                                                    selectedApplication.id,
+                                                    "SHORTLISTED",
+                                                  )
+                                                }
+                                                className="bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500/20"
+                                              >
+                                                <TrendingUp className="h-4 w-4 mr-1" />
+                                                Shortlist
+                                              </Button>
+                                              <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() =>
+                                                  handleStatusChange(
+                                                    selectedApplication.id,
+                                                    "REJECTED",
+                                                  )
+                                                }
+                                                className="bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20"
+                                              >
+                                                <XCircle className="h-4 w-4 mr-1" />
+                                                Reject
+                                              </Button>
+                                            </div>
+                                          ) : (
+                                            <p className="text-sm text-muted-foreground">
+                                              Status already updated to{" "}
+                                              <span className="font-medium">
+                                                {selectedApplication.status}
+                                              </span>
+                                              .
+                                            </p>
+                                          )}
                                         </div>
                                       </div>
                                     )}
@@ -681,12 +739,7 @@ export default function CompanyApplications() {
                                 <Button
                                   variant="ghost"
                                   size="sm"
-                                  onClick={() => {
-                                    window.open(
-                                      `${import.meta.env.VITE_API_URL}/${application.cvPath}`,
-                                      "_blank",
-                                    );
-                                  }}
+                                  onClick={() => openResume(application.cvPath)}
                                 >
                                   <Download className="h-4 w-4" />
                                 </Button>

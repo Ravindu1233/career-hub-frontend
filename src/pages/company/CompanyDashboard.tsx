@@ -9,17 +9,29 @@ import { Briefcase, FileText, Calendar, Users, ArrowRight } from "lucide-react";
 type ApplicationFromAPI = {
   id: string;
   status: string;
+  jobId?: string;
+  job?: {
+    id?: string;
+    jobTitle?: string;
+  };
+  user?: {
+    firstName?: string;
+    lastName?: string;
+  };
 };
 
 export default function CompanyDashboard() {
   const [jobs, setJobs] = useState<any[]>([]);
   const [applications, setApplications] = useState<ApplicationFromAPI[]>([]);
+  const [interviews, setInterviews] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [loadingApplications, setLoadingApplications] = useState(false);
+  const [loadingInterviews, setLoadingInterviews] = useState(false);
 
   useEffect(() => {
     loadJobs();
     loadApplications();
+    loadInterviews();
   }, []);
 
   const loadJobs = async () => {
@@ -42,11 +54,48 @@ export default function CompanyDashboard() {
     }
   };
 
-  // Mock interviews count (replace with API call when available)
-  const scheduledInterviewsCount = 2;
-  const shortlistedCount = applications.filter(
-    (a) => a.status === "shortlisted",
+  const loadInterviews = async () => {
+    setLoadingInterviews(true);
+    try {
+      const res = await api.get("/interviews/company/all");
+      setInterviews(Array.isArray(res.data) ? res.data : []);
+    } finally {
+      setLoadingInterviews(false);
+    }
+  };
+
+  const scheduledInterviewsCount = interviews.filter(
+    (i) => String(i?.status || "").toUpperCase() === "SCHEDULED",
   ).length;
+
+  const applicationsByJobId = applications.reduce<Record<string, number>>(
+    (acc, app) => {
+      const key = String(app.jobId ?? app.job?.id ?? "");
+      if (!key) return acc;
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+
+  const getJobApplicationsCount = (job: any) => {
+    const jobId = String(job?.id ?? "");
+    const fromApplicationsEndpoint = applicationsByJobId[jobId] ?? 0;
+    const fromApplicantCount =
+      typeof job?.applicantCount === "number" ? job.applicantCount : 0;
+    const fromCurrentApplicants =
+      typeof job?.currentApplicants === "number" ? job.currentApplicants : 0;
+    const fromEmbeddedArray = Array.isArray(job?.applications)
+      ? job.applications.length
+      : 0;
+
+    return Math.max(
+      fromApplicationsEndpoint,
+      fromApplicantCount,
+      fromCurrentApplicants,
+      fromEmbeddedArray,
+    );
+  };
 
   return (
     <MainLayout>
@@ -131,7 +180,7 @@ export default function CompanyDashboard() {
                     </div>
                     <div>
                       <p className="text-3xl font-bold text-foreground">
-                        {scheduledInterviewsCount}
+                        {loadingInterviews ? "..." : scheduledInterviewsCount}
                       </p>
                       <p className="text-xs text-muted-foreground">
                         Scheduled Interviews
@@ -205,7 +254,7 @@ export default function CompanyDashboard() {
                         <div>
                           <p className="font-medium text-sm">{job.jobTitle}</p>
                           <p className="text-xs text-muted-foreground">
-                            {job.applications?.length ?? 0} applications
+                            {getJobApplicationsCount(job)} applications
                           </p>
                         </div>
                         <Link to={`/company/jobs/${job.id}`}>

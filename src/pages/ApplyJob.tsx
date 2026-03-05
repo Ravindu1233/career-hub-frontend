@@ -25,6 +25,8 @@ const ApplyJob = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [jobLoading, setJobLoading] = useState(true);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [hasApplied, setHasApplied] = useState(false);
 
   const [formData, setFormData] = useState({
     coverLetter: "",
@@ -35,11 +37,39 @@ const ApplyJob = () => {
 
   useEffect(() => {
     async function loadJob() {
-      if (!id) return;
+      if (!id) {
+        navigate("/jobs");
+        return;
+      }
       try {
         setJobLoading(true);
         const res = await api.get(`/jobs/${id}`);
         setJob(res.data);
+
+        const token =
+          localStorage.getItem("token") || sessionStorage.getItem("token");
+        if (token) {
+          try {
+            const applicationsRes = await api.get(
+              "/applications/my-applications",
+            );
+            const applications = Array.isArray(applicationsRes?.data)
+              ? applicationsRes.data
+              : [];
+            const alreadyApplied = applications.some((application: any) => {
+              const applicationJobId =
+                application?.job?.id ??
+                application?.job?.jobId ??
+                application?.jobId;
+              return String(applicationJobId) === String(id);
+            });
+            setHasApplied(alreadyApplied);
+          } catch {
+            setHasApplied(false);
+          }
+        } else {
+          setHasApplied(false);
+        }
       } catch (error: any) {
         toast({
           title: "Error",
@@ -89,10 +119,30 @@ const ApplyJob = () => {
   };
 
   const handleSubmit = async () => {
+    if (hasApplied) {
+      toast({
+        title: "Already Applied",
+        description: "You have already applied for this job.",
+        variant: "destructive",
+      });
+      navigate("/my-applications");
+      return;
+    }
+
     if (!formData.cvFile) {
       toast({
         title: "CV Required",
         description: "Please upload your CV/Resume",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!termsAccepted) {
+      toast({
+        title: "Confirmation Required",
+        description:
+          "Please confirm that your information is accurate and complete.",
         variant: "destructive",
       });
       return;
@@ -126,10 +176,18 @@ const ApplyJob = () => {
       });
       navigate("/my-applications");
     } catch (error: any) {
+      const errorMessage =
+        error?.response?.data?.message || "Failed to submit application";
+      if (
+        typeof errorMessage === "string" &&
+        /already applied|duplicate|exists/i.test(errorMessage)
+      ) {
+        setHasApplied(true);
+      }
+
       toast({
         title: "Application Failed",
-        description:
-          error?.response?.data?.message || "Failed to submit application",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -157,6 +215,44 @@ const ApplyJob = () => {
         <div className="bg-muted/30 min-h-screen py-8">
           <div className="container mx-auto px-4 max-w-4xl">
             <div className="text-center text-destructive">Job not found</div>
+          </div>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (hasApplied) {
+    return (
+      <MainLayout>
+        <div className="bg-muted/30 min-h-screen py-8">
+          <div className="container mx-auto px-4 max-w-4xl">
+            <Link
+              to={`/jobs/${id}`}
+              className="inline-flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back to Job Details
+            </Link>
+            <div className="bg-card rounded-xl p-8 shadow-sm text-center space-y-4">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto">
+                <Check className="h-8 w-8 text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground">
+                Application Already Submitted
+              </h2>
+              <p className="text-muted-foreground max-w-md mx-auto">
+                You have already applied for this job. You can track updates in
+                your applications page.
+              </p>
+              <div className="flex gap-3 justify-center pt-2">
+                <Button asChild variant="outline">
+                  <Link to={`/jobs/${id}`}>View Job Details</Link>
+                </Button>
+                <Button asChild>
+                  <Link to="/my-applications">Go to My Applications</Link>
+                </Button>
+              </div>
+            </div>
           </div>
         </div>
       </MainLayout>
@@ -420,7 +516,8 @@ const ApplyJob = () => {
                     type="checkbox"
                     id="terms"
                     className="rounded"
-                    required
+                    checked={termsAccepted}
+                    onChange={(e) => setTermsAccepted(e.target.checked)}
                   />
                   <Label htmlFor="terms" className="text-sm">
                     I confirm that all information provided is accurate and
@@ -435,7 +532,7 @@ const ApplyJob = () => {
                   <Button
                     onClick={handleSubmit}
                     className="bg-primary"
-                    disabled={loading}
+                    disabled={loading || !termsAccepted}
                   >
                     {loading ? "Submitting..." : "Submit Application"}
                   </Button>
