@@ -39,7 +39,6 @@ interface ApiJob {
   location: string;
   jobDate: string;
   status: Status;
-  rejectionReason?: string;
   company: { companyId: number; companyName: string };
 }
 
@@ -254,7 +253,6 @@ export default function AdminJobs() {
                   <TableHead>Location</TableHead>
                   <TableHead>Posted</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Reason</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -270,9 +268,6 @@ export default function AdminJobs() {
                     </TableCell>
                     <TableCell>
                       <StatusBadge status={j.status} />
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[140px] truncate">
-                      {j.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Link to={`/admin/jobs/${j.id}`}>
@@ -290,7 +285,7 @@ export default function AdminJobs() {
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={8}
+                      colSpan={7}
                       className="text-center text-muted-foreground py-8"
                     >
                       No jobs found
@@ -305,3 +300,4 @@ export default function AdminJobs() {
     </AdminLayout>
   );
 }
+

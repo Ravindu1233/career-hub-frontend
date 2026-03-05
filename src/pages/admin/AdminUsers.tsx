@@ -30,7 +30,7 @@ import { Search, Loader2, Eye, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
-type Status = "ACTIVE" | "SUSPENDED";
+type Status = "ACTIVE" | "SUSPENDED" | "REJECTED";
 
 interface ApiUser {
   userId: number;
@@ -46,6 +46,7 @@ function StatusBadge({ status }: { status: Status }) {
   const map: Record<Status, string> = {
     ACTIVE: "bg-green-500/10 text-green-600 border-green-500/20",
     SUSPENDED: "bg-orange-500/10 text-orange-600 border-orange-500/20",
+    REJECTED: "bg-red-500/10 text-red-600 border-red-500/20",
   };
   return (
     <Badge variant="outline" className={map[status]}>
@@ -138,6 +139,7 @@ export default function AdminUsers() {
                 <SelectItem value="all">All Status</SelectItem>
                 <SelectItem value="ACTIVE">Active</SelectItem>
                 <SelectItem value="SUSPENDED">Suspended</SelectItem>
+                <SelectItem value="REJECTED">Rejected</SelectItem>
               </SelectContent>
             </Select>
 

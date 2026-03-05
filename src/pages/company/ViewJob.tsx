@@ -35,6 +35,8 @@ type Job = {
   jobTitle: string;
   jobType: string;
   location: string;
+  status?: string;
+  rejectionReason?: string | null;
   salaryRange: string;
   jobDescription: string;
   requirements: string;
@@ -53,6 +55,10 @@ const getStatusBadge = (status: string) => {
       variant: "default" | "secondary" | "destructive" | "outline";
     }
   > = {
+    PENDING: { label: "Pending", variant: "secondary" },
+    APPROVED: { label: "Approved", variant: "default" },
+    REJECTED: { label: "Rejected", variant: "destructive" },
+    SUSPENDED: { label: "Suspended", variant: "outline" },
     active: { label: "Active", variant: "default" },
     paused: { label: "Paused", variant: "secondary" },
     closed: { label: "Closed", variant: "outline" },
@@ -184,7 +190,7 @@ export default function ViewJob() {
                 <h1 className="text-3xl font-bold text-foreground">
                   {job.jobTitle}
                 </h1>
-                {getStatusBadge("active")}
+                {getStatusBadge(job.status || "PENDING")}
               </div>
               <p className="text-muted-foreground mt-1">{job.jobType}</p>
             </div>

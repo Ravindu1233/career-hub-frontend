@@ -31,6 +31,10 @@ const getStatusBadge = (status: string) => {
       variant: "default" | "secondary" | "destructive" | "outline";
     }
   > = {
+    PENDING: { label: "Pending", variant: "secondary" },
+    APPROVED: { label: "Approved", variant: "default" },
+    REJECTED: { label: "Rejected", variant: "destructive" },
+    SUSPENDED: { label: "Suspended", variant: "outline" },
     active: { label: "Active", variant: "default" },
     paused: { label: "Paused", variant: "secondary" },
     closed: { label: "Closed", variant: "outline" },
@@ -421,7 +425,7 @@ export default function CompanyJobs() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-1">
                         <h3 className="font-semibold text-foreground">{job.jobTitle}</h3>
-                        {getStatusBadge("active")}
+                        {getStatusBadge(job.status || "PENDING")}
                       </div>
 
                       <p className="text-sm text-muted-foreground">
