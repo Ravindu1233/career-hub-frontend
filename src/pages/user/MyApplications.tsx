@@ -92,7 +92,7 @@ function normalizeStatus(status: string) {
   if (s === "OFFERED") return "offered";
   if (s === "REJECTED") return "rejected";
   if (s === "ACCEPTED") return "accepted";
-  return "under_review";
+  return "other";
 }
 
 const getStatusBadge = (status: string) => {
@@ -206,11 +206,8 @@ export default function MyApplications() {
   // Stats - Updated to show Total, Pending, Interviews
   const stats = {
     total: apps.length,
-    pending: apps.filter(
-      (a) =>
-        normalizeStatus(a.status) === "under_review" ||
-        normalizeStatus(a.status) === "interview_scheduled",
-    ).length,
+    pending: apps.filter((a) => normalizeStatus(a.status) === "under_review")
+      .length,
     interviews: apps.filter(
       (a) => normalizeStatus(a.status) === "interview_scheduled",
     ).length,

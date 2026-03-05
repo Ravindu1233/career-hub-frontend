@@ -17,6 +17,7 @@ import MyApplications from "./pages/MyApplications";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import NotFound from "./pages/NotFound";
+import Settings from "./pages/Settings";
 
 // ✅ Import separated user pages
 import UserDashboard from "./pages/user/UserDashboard";
@@ -316,6 +317,14 @@ const App = () => (
             element={
               <ProtectedRoute allow="ADMIN">
                 <AdminSettings />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute allow={["USER", "COMPANY"]}>
+                <Settings />
               </ProtectedRoute>
             }
           />

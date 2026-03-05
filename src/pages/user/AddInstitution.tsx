@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Upload, X, ImageIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -24,7 +24,6 @@ export default function AddInstitution() {
 
   const [formData, setFormData] = useState({
     name: "",
-    logo: "",
     location: "",
     email: "",
     phone: "",
@@ -33,13 +32,45 @@ export default function AddInstitution() {
     founded: "",
     students: "",
   });
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   const createMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const res = await api.post("/institutions", data);
+    mutationFn: async () => {
+      // Step 1: create institution with JSON (backend POST /institutions does NOT accept files)
+      const res = await api.post("/institutions", {
+        name: formData.name,
+        email: formData.email,
+        ...(formData.location && { location: formData.location }),
+        ...(formData.description && { description: formData.description }),
+        ...(formData.website && { website: formData.website }),
+        ...(formData.phone && { phone: formData.phone }),
+        ...(formData.founded && { founded: formData.founded }),
+        ...(formData.students && { students: formData.students }),
+      });
       return res.data;
     },
-    onSuccess: () => {
+    onSuccess: async (created) => {
+      // Step 2: upload logo to separate endpoint if selected
+      if (logoFile && created?.id) {
+        try {
+          const form = new FormData();
+          form.append("image", logoFile); // must match FileInterceptor('image')
+          await api.post(`/institutions/${created.id}/logo`, form, {
+            headers: { "Content-Type": "multipart/form-data" },
+          });
+        } catch {
+          toast({
+            title: "Institution created",
+            description:
+              "Institution created but logo upload failed. You can upload it from the edit page.",
+            variant: "destructive",
+          });
+          queryClient.invalidateQueries({ queryKey: ["my-institutions"] });
+          navigate("/user/institutions");
+          return;
+        }
+      }
       queryClient.invalidateQueries({ queryKey: ["my-institutions"] });
       toast({
         title: "Institution created",
@@ -58,8 +89,13 @@ export default function AddInstitution() {
     },
   });
 
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setLogoFile(file);
+    setLogoPreview(file ? URL.createObjectURL(file) : null);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -72,17 +108,7 @@ export default function AddInstitution() {
       });
       return;
     }
-
-    const submitData: any = { name: formData.name, email: formData.email };
-    if (formData.logo) submitData.logo = formData.logo;
-    if (formData.location) submitData.location = formData.location;
-    if (formData.description) submitData.description = formData.description;
-    if (formData.website) submitData.website = formData.website;
-    if (formData.phone) submitData.phone = formData.phone;
-    if (formData.founded) submitData.founded = formData.founded;
-    if (formData.students) submitData.students = formData.students;
-
-    createMutation.mutate(submitData);
+    createMutation.mutate();
   };
 
   return (
@@ -93,10 +119,8 @@ export default function AddInstitution() {
           onClick={() => navigate("/user/institutions")}
           className="gap-2 mb-4"
         >
-          <ArrowLeft className="h-4 w-4" />
-          Back to My Institutions
+          <ArrowLeft className="h-4 w-4" /> Back to My Institutions
         </Button>
-
         <Card>
           <CardHeader>
             <CardTitle>Add New Institution</CardTitle>
@@ -107,34 +131,63 @@ export default function AddInstitution() {
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
+              {/* ── Logo Upload ─────────────────────────────────── */}
+              <div className="space-y-2">
+                <Label>Institution Logo</Label>
+                <div className="flex items-center gap-4">
+                  <div className="h-20 w-20 rounded-xl border-2 border-dashed border-border bg-muted flex items-center justify-center overflow-hidden shrink-0">
+                    {logoPreview ? (
+                      <img
+                        src={logoPreview}
+                        alt="Preview"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <label className="cursor-pointer">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/png,image/webp"
+                        className="hidden"
+                        onChange={handleLogoChange}
+                        disabled={createMutation.isPending}
+                      />
+                      <span className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium border border-input rounded-md bg-background hover:bg-muted transition-colors cursor-pointer">
+                        <Upload className="h-4 w-4" />
+                        {logoFile ? "Change Logo" : "Upload Logo"}
+                      </span>
+                    </label>
+                    {logoFile && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLogoFile(null);
+                          setLogoPreview(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 text-sm text-destructive hover:opacity-80"
+                      >
+                        <X className="h-3.5 w-3.5" /> Remove
+                      </button>
+                    )}
+                    <p className="text-xs text-muted-foreground">
+                      {logoFile ? logoFile.name : "JPG, PNG or WebP — max 5MB"}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* ── Fields ──────────────────────────────────────── */}
               <div className="grid sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="name">Institution Name *</Label>
                   <Input
                     id="name"
-                    placeholder="e.g. Tech Academy Rwanda"
+                    placeholder="e.g. Tech Academy"
                     value={formData.name}
                     onChange={(e) => handleChange("name", e.target.value)}
-                    disabled={createMutation.isPending}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="logo">Logo (initials or URL)</Label>
-                  <Input
-                    id="logo"
-                    placeholder="e.g. TA"
-                    value={formData.logo}
-                    onChange={(e) => handleChange("logo", e.target.value)}
-                    disabled={createMutation.isPending}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input
-                    id="location"
-                    placeholder="e.g. Kigali, Rwanda"
-                    value={formData.location}
-                    onChange={(e) => handleChange("location", e.target.value)}
                     disabled={createMutation.isPending}
                   />
                 </div>
@@ -150,10 +203,20 @@ export default function AddInstitution() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Input
+                    id="location"
+                    placeholder="e.g. Colombo, Sri Lanka"
+                    value={formData.location}
+                    onChange={(e) => handleChange("location", e.target.value)}
+                    disabled={createMutation.isPending}
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label htmlFor="phone">Phone</Label>
                   <Input
                     id="phone"
-                    placeholder="+250 788 000 000"
+                    placeholder="+94 11 000 0000"
                     value={formData.phone}
                     onChange={(e) => handleChange("phone", e.target.value)}
                     disabled={createMutation.isPending}
@@ -179,7 +242,7 @@ export default function AddInstitution() {
                     disabled={createMutation.isPending}
                   />
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2 sm:col-span-2">
                   <Label htmlFor="students">Student Count</Label>
                   <Input
                     id="students"
@@ -190,6 +253,7 @@ export default function AddInstitution() {
                   />
                 </div>
               </div>
+
               <div className="space-y-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
@@ -201,6 +265,7 @@ export default function AddInstitution() {
                   disabled={createMutation.isPending}
                 />
               </div>
+
               <div className="flex gap-3 justify-end">
                 <Button
                   type="button"

@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -13,7 +14,6 @@ import {
   GraduationCap,
   ArrowLeft,
   ExternalLink,
-  CheckCircle,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/lib/api";
@@ -22,9 +22,20 @@ import { api } from "@/lib/api";
 // API Endpoints
 // =============================
 const API_INSTITUTION = (id: string) => `/institutions/${id}`;
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 const InstitutionDetails = () => {
   const { id } = useParams();
+  const [logoError, setLogoError] = useState(false);
+
+  const resolveLogoUrl = (logo?: string | null) => {
+    if (!logo) return null;
+    const trimmed = logo.trim();
+    if (!trimmed) return null;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (trimmed.startsWith("data:")) return trimmed;
+    return `${API_BASE}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
+  };
 
   // Fetch institution
   const {
@@ -39,6 +50,10 @@ const InstitutionDetails = () => {
     },
     enabled: !!id,
   });
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [institution?.id, institution?.logo]);
 
   if (isLoading) {
     return (
@@ -67,6 +82,7 @@ const InstitutionDetails = () => {
   }
 
   const courses = institution.courses || [];
+  const logoUrl = resolveLogoUrl(institution.logo);
 
   return (
     <MainLayout>
@@ -83,8 +99,17 @@ const InstitutionDetails = () => {
             </Link>
 
             <div className="flex flex-col md:flex-row items-start gap-6">
-              <div className="w-24 h-24 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center text-3xl font-bold">
-                {institution.logo || institution.name.charAt(0).toUpperCase()}
+              <div className="w-24 h-24 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center text-3xl font-bold overflow-hidden">
+                {logoUrl && !logoError ? (
+                  <img
+                    src={logoUrl}
+                    alt={`${institution.name} logo`}
+                    className="h-full w-full object-cover"
+                    onError={() => setLogoError(true)}
+                  />
+                ) : (
+                  institution.name.charAt(0).toUpperCase()
+                )}
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">

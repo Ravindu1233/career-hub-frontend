@@ -3,7 +3,6 @@ import { Link, useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import {
   GraduationCap,
   Plus,
@@ -23,6 +22,7 @@ import { api } from "@/lib/api";
 // =============================
 const API_MY_INSTITUTIONS = "/institutions/my-institutions";
 const API_DELETE_INSTITUTION = (id: string) => `/institutions/${id}`;
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // =============================
 // Types
@@ -46,6 +46,16 @@ export default function MyInstitutions() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [brokenLogoIds, setBrokenLogoIds] = useState<Record<string, true>>({});
+
+  const resolveLogoUrl = (logo?: string | null) => {
+    if (!logo) return null;
+    const trimmed = logo.trim();
+    if (!trimmed) return null;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (trimmed.startsWith("data:")) return trimmed;
+    return `${API_BASE}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
+  };
 
   // Fetch institutions
   const {
@@ -163,6 +173,7 @@ export default function MyInstitutions() {
           <div className="space-y-4">
             {institutions.map((inst) => {
               const coursesCount = inst.courses?.length || 0;
+              const logoUrl = resolveLogoUrl(inst.logo);
               return (
                 <Card
                   key={inst.id}
@@ -172,7 +183,21 @@ export default function MyInstitutions() {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="flex items-start gap-4">
                         <div className="h-14 w-14 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 text-xl font-bold text-primary">
-                          {inst.logo || inst.name.charAt(0).toUpperCase()}
+                          {logoUrl && !brokenLogoIds[inst.id] ? (
+                            <img
+                              src={logoUrl}
+                              alt={`${inst.name} logo`}
+                              className="h-full w-full object-cover rounded-xl"
+                              onError={() =>
+                                setBrokenLogoIds((prev) => ({
+                                  ...prev,
+                                  [inst.id]: true,
+                                }))
+                              }
+                            />
+                          ) : (
+                            inst.name.charAt(0).toUpperCase()
+                          )}
                         </div>
                         <div>
                           <h3 className="text-lg font-semibold text-foreground">

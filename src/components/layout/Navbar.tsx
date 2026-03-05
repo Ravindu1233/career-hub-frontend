@@ -213,7 +213,7 @@ function NotificationBell({ authType }: { authType: string }) {
   };
 
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu open={open} onOpenChange={setOpen} modal={false}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="icon" className="relative">
           <Bell className="h-5 w-5" />
@@ -529,6 +529,13 @@ export function Navbar() {
                       Dashboard
                     </Button>
                   </Link>
+                  {!isAdmin && (
+                    <Link to="/settings" onClick={handleNavClick}>
+                      <Button variant="outline" className="w-full">
+                        Settings
+                      </Button>
+                    </Link>
+                  )}
                   <Button
                     className="w-full"
                     variant="destructive"

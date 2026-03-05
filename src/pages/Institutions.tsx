@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 // API Endpoints
 // =============================
 const API_ALL_INSTITUTIONS = "/institutions";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // =============================
 // Types
@@ -33,6 +34,16 @@ interface Institution {
 
 export default function Institutions() {
   const [searchQuery, setSearchQuery] = useState("");
+  const [brokenLogoIds, setBrokenLogoIds] = useState<Record<string, true>>({});
+
+  const resolveLogoUrl = (logo?: string | null) => {
+    if (!logo) return null;
+    const trimmed = logo.trim();
+    if (!trimmed) return null;
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    if (trimmed.startsWith("data:")) return trimmed;
+    return `${API_BASE}${trimmed.startsWith("/") ? trimmed : `/${trimmed}`}`;
+  };
 
   // Fetch all institutions
   const {
@@ -135,6 +146,7 @@ export default function Institutions() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {filteredInstitutions.map((institution) => {
                 const coursesCount = institution.courses?.length || 0;
+                const logoUrl = resolveLogoUrl(institution.logo);
                 return (
                   <Link
                     key={institution.id}
@@ -142,9 +154,22 @@ export default function Institutions() {
                     className="group bg-card rounded-xl border border-border p-6 card-hover"
                   >
                     <div className="flex items-start gap-4 mb-4">
-                      <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg">
-                        {institution.logo ||
-                          institution.name.charAt(0).toUpperCase()}
+                      <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-lg overflow-hidden">
+                        {logoUrl && !brokenLogoIds[institution.id] ? (
+                          <img
+                            src={logoUrl}
+                            alt={`${institution.name} logo`}
+                            className="h-full w-full object-cover"
+                            onError={() =>
+                              setBrokenLogoIds((prev) => ({
+                                ...prev,
+                                [institution.id]: true,
+                              }))
+                            }
+                          />
+                        ) : (
+                          institution.name.charAt(0).toUpperCase()
+                        )}
                       </div>
                       <div className="flex-1">
                         <h3 className="font-semibold text-lg text-foreground group-hover:text-primary transition-colors">

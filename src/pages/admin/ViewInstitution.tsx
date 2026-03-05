@@ -42,9 +42,12 @@ import {
   Loader2,
   Calendar,
   User,
+  ImageIcon,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 type Status = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 
@@ -92,11 +95,6 @@ function StatusBadge({ status }: { status: Status }) {
   );
 }
 
-// ─── State machine ─────────────────────────────────────────────────────────────
-// PENDING   → Approve ✅  | Reject ✅  | Suspend ✗
-// APPROVED  → Approve ✗   | Reject ✗   | Suspend ✅
-// REJECTED  → Approve ✅  | Reject ✗   | Suspend ✗
-// SUSPENDED → Approve ✅  | Reject ✅  | Suspend ✗
 function getAllowedActions(status: Status) {
   return {
     canApprove:
@@ -118,7 +116,6 @@ export default function AdminViewInstitution() {
   const fetchInstitution = async () => {
     setLoading(true);
     try {
-      // Fetch all and find by id until GET /admin/institutions/:id is added
       const res = await api.get("/admin/institutions");
       const found = res.data.find((inst: ApiInstitution) => inst.id === id);
       if (!found) throw new Error("Not found");
@@ -206,25 +203,21 @@ export default function AdminViewInstitution() {
   const { canApprove, canReject, canSuspend } = getAllowedActions(
     institution.status,
   );
+  const logoUrl = institution.logo ? `${API_BASE}${institution.logo}` : null;
 
   return (
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start gap-4 flex-wrap">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <Link to="/admin/institutions">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold">{institution.name}</h1>
-            <p className="text-muted-foreground">
-              {institution.location ?? "No location set"}
-            </p>
-          </div>
 
-          {/* Action buttons — state machine controlled */}
+          {/* ✅ Logo + name side by side in header */}
+          {/* Action buttons */}
           <div className="flex gap-2 flex-wrap">
             {canApprove && (
               <Button
@@ -249,8 +242,7 @@ export default function AdminViewInstitution() {
                 }}
                 disabled={actionLoading}
               >
-                <XCircle className="h-4 w-4 mr-2" />
-                Reject
+                <XCircle className="h-4 w-4 mr-2" /> Reject
               </Button>
             )}
             {canSuspend && (
@@ -260,8 +252,7 @@ export default function AdminViewInstitution() {
                 disabled={actionLoading}
                 className="border-orange-500 text-orange-600 hover:bg-orange-50"
               >
-                <Ban className="h-4 w-4 mr-2" />
-                Suspend
+                <Ban className="h-4 w-4 mr-2" /> Suspend
               </Button>
             )}
           </div>
@@ -296,6 +287,29 @@ export default function AdminViewInstitution() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* ✅ Logo preview inside the card */}
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Logo</p>
+                <div className="h-20 w-20 rounded-xl border border-border bg-muted flex items-center justify-center overflow-hidden">
+                  {logoUrl ? (
+                    <img
+                      src={logoUrl}
+                      alt={`${institution.name} logo`}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+                {!logoUrl && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    No logo uploaded
+                  </p>
+                )}
+              </div>
+
+              <Separator />
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Name</p>

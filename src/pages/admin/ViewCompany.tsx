@@ -185,18 +185,12 @@ export default function ViewCompany() {
     <AdminLayout>
       <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-start gap-4 flex-wrap">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
           <Link to="/admin/companies">
             <Button variant="ghost" size="icon">
               <ArrowLeft className="h-4 w-4" />
             </Button>
           </Link>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl font-bold">{company.companyName}</h1>
-            <p className="text-muted-foreground">
-              {company.industry ?? "No industry set"}
-            </p>
-          </div>
 
           <div className="flex gap-2 flex-wrap">
             {canApprove && (
