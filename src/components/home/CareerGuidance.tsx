@@ -7,32 +7,38 @@ const posts = [
   {
     id: "1",
     title: "10 Tips for Acing Your Next Technical Interview",
-    excerpt: "Prepare effectively for technical interviews with these proven strategies from hiring managers at top tech companies.",
+    excerpt:
+      "Prepare effectively for technical interviews with these proven strategies from hiring managers at top tech companies.",
     category: "Interview Tips",
     author: "Sarah Johnson",
     date: "Dec 28, 2025",
     readTime: "5 min read",
-    image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=400&h=250&fit=crop",
+    image:
+      "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?w=400&h=250&fit=crop",
   },
   {
     id: "2",
     title: "How to Write a Resume That Gets Noticed",
-    excerpt: "Learn the key elements that make your resume stand out in a competitive job market and get past ATS systems.",
+    excerpt:
+      "Learn the key elements that make your resume stand out in a competitive job market and get past ATS systems.",
     category: "CV Writing",
     author: "Michael Chen",
     date: "Dec 25, 2025",
     readTime: "7 min read",
-    image: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&h=250&fit=crop",
+    image:
+      "https://images.unsplash.com/photo-1586281380349-632531db7ed4?w=400&h=250&fit=crop",
   },
   {
     id: "3",
     title: "Remote Work: Building a Successful Career from Anywhere",
-    excerpt: "Discover how to thrive in remote positions and build meaningful professional relationships in a virtual environment.",
+    excerpt:
+      "Discover how to thrive in remote positions and build meaningful professional relationships in a virtual environment.",
     category: "Career Tips",
     author: "Emily Davis",
     date: "Dec 22, 2025",
     readTime: "6 min read",
-    image: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=250&fit=crop",
+    image:
+      "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=400&h=250&fit=crop",
   },
 ];
 
@@ -44,7 +50,7 @@ export function CareerGuidance() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-12">
           <div>
             <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-2">
-              Career <span className="text-gradient">Guidance</span>
+              Career Guidance
             </h2>
             <p className="text-lg text-muted-foreground">
               Expert insights to help you advance your career
@@ -72,10 +78,7 @@ export function CareerGuidance() {
                   alt={post.title}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
-                <Badge
-                  variant="primary"
-                  className="absolute top-4 left-4"
-                >
+                <Badge variant="primary" className="absolute top-4 left-4">
                   {post.category}
                 </Badge>
               </div>

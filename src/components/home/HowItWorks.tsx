@@ -1,4 +1,11 @@
-import { User, Search, Briefcase, FileText, Users, Calendar } from "lucide-react";
+import {
+  User,
+  Search,
+  Briefcase,
+  FileText,
+  Users,
+  Calendar,
+} from "lucide-react";
 
 const steps = {
   jobSeekers: [
@@ -44,10 +51,11 @@ export function HowItWorks() {
         {/* Header */}
         <div className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
-            How It <span className="text-gradient">Works</span>
+            How It Works
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Get started in just a few simple steps, whether you're looking for your next opportunity or searching for top talent.
+            Get started in just a few simple steps, whether you're looking for
+            your next opportunity or searching for top talent.
           </p>
         </div>
 
@@ -59,7 +67,9 @@ export function HowItWorks() {
               <div className="h-12 w-12 rounded-xl gradient-primary flex items-center justify-center">
                 <User className="h-6 w-6 text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground">For Job Seekers</h3>
+              <h3 className="text-2xl font-bold text-foreground">
+                For Job Seekers
+              </h3>
             </div>
 
             <div className="relative space-y-0">
@@ -67,11 +77,16 @@ export function HowItWorks() {
               <div className="absolute left-6 top-6 bottom-6 w-0.5 bg-gradient-to-b from-primary via-primary/50 to-transparent" />
 
               {steps.jobSeekers.map((step, index) => (
-                <div key={step.title} className="relative flex gap-6 pb-8 last:pb-0">
+                <div
+                  key={step.title}
+                  className="relative flex gap-6 pb-8 last:pb-0"
+                >
                   {/* Step number circle */}
                   <div className="relative z-10 flex-shrink-0">
                     <div className="h-12 w-12 rounded-full bg-primary/10 border-2 border-primary flex items-center justify-center">
-                      <span className="text-lg font-bold text-primary">{index + 1}</span>
+                      <span className="text-lg font-bold text-primary">
+                        {index + 1}
+                      </span>
                     </div>
                   </div>
 
@@ -82,9 +97,13 @@ export function HowItWorks() {
                         <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center">
                           <step.icon className="h-5 w-5 text-primary" />
                         </div>
-                        <h4 className="text-lg font-semibold text-foreground">{step.title}</h4>
+                        <h4 className="text-lg font-semibold text-foreground">
+                          {step.title}
+                        </h4>
                       </div>
-                      <p className="text-muted-foreground">{step.description}</p>
+                      <p className="text-muted-foreground">
+                        {step.description}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -98,7 +117,9 @@ export function HowItWorks() {
               <div className="h-12 w-12 rounded-xl gradient-accent flex items-center justify-center">
                 <Briefcase className="h-6 w-6 text-white" />
               </div>
-              <h3 className="text-2xl font-bold text-foreground">For Employers</h3>
+              <h3 className="text-2xl font-bold text-foreground">
+                For Employers
+              </h3>
             </div>
 
             <div className="relative space-y-0">
@@ -106,11 +127,16 @@ export function HowItWorks() {
               <div className="absolute left-6 top-6 bottom-6 w-0.5 bg-gradient-to-b from-accent via-accent/50 to-transparent" />
 
               {steps.employers.map((step, index) => (
-                <div key={step.title} className="relative flex gap-6 pb-8 last:pb-0">
+                <div
+                  key={step.title}
+                  className="relative flex gap-6 pb-8 last:pb-0"
+                >
                   {/* Step number circle */}
                   <div className="relative z-10 flex-shrink-0">
                     <div className="h-12 w-12 rounded-full bg-accent/10 border-2 border-accent flex items-center justify-center">
-                      <span className="text-lg font-bold text-accent">{index + 1}</span>
+                      <span className="text-lg font-bold text-accent">
+                        {index + 1}
+                      </span>
                     </div>
                   </div>
 
@@ -121,9 +147,13 @@ export function HowItWorks() {
                         <div className="h-10 w-10 rounded-lg bg-accent/10 flex items-center justify-center">
                           <step.icon className="h-5 w-5 text-accent" />
                         </div>
-                        <h4 className="text-lg font-semibold text-foreground">{step.title}</h4>
+                        <h4 className="text-lg font-semibold text-foreground">
+                          {step.title}
+                        </h4>
                       </div>
-                      <p className="text-muted-foreground">{step.description}</p>
+                      <p className="text-muted-foreground">
+                        {step.description}
+                      </p>
                     </div>
                   </div>
                 </div>

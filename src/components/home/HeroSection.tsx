@@ -1,22 +1,85 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Search, MapPin, Briefcase, ChevronDown, Users, Building2, TrendingUp, CheckCircle } from "lucide-react";
+import { api } from "@/lib/api";
+import { Search, MapPin, Briefcase, ChevronDown, Building2, GraduationCap, BookOpen } from "lucide-react";
+
+type CounterStats = {
+  jobs: number;
+  companies: number;
+  institutions: number;
+  courses: number;
+};
+
+type InstitutionSummary = {
+  courses?: unknown[] | null;
+};
 
 export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [location, setLocation] = useState("");
-  
-  // Animated counter
-  const [counters, setCounters] = useState({ jobs: 0, companies: 0, candidates: 0, success: 0 });
-  
+
+  // Animated counters rendered in the UI
+  const [counters, setCounters] = useState<CounterStats>({
+    jobs: 0,
+    companies: 0,
+    institutions: 0,
+    courses: 0,
+  });
+  const [targets, setTargets] = useState<CounterStats>({
+    jobs: 0,
+    companies: 0,
+    institutions: 0,
+    courses: 0,
+  });
+
   useEffect(() => {
-    const targets = { jobs: 10000, companies: 5000, candidates: 50000, success: 95 };
+    let alive = true;
+
+    const loadHeroStats = async () => {
+      try {
+        const [jobsRes, companiesRes, institutionsRes] = await Promise.all([
+          api.get("/jobs"),
+          api.get("/companies"),
+          api.get("/institutions"),
+        ]);
+
+        const jobs = Array.isArray(jobsRes.data) ? jobsRes.data : [];
+        const companies = Array.isArray(companiesRes.data) ? companiesRes.data : [];
+        const institutions = Array.isArray(institutionsRes.data)
+          ? (institutionsRes.data as InstitutionSummary[])
+          : [];
+        const totalCourses = institutions.reduce((sum, institution) => {
+          const count = Array.isArray(institution?.courses) ? institution.courses.length : 0;
+          return sum + count;
+        }, 0);
+
+        if (alive) {
+          setTargets({
+            jobs: jobs.length,
+            companies: companies.length,
+            institutions: institutions.length,
+            courses: totalCourses,
+          });
+        }
+      } catch {
+        if (alive) {
+          setTargets({ jobs: 0, companies: 0, institutions: 0, courses: 0 });
+        }
+      }
+    };
+
+    loadHeroStats();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const duration = 2000;
     const steps = 60;
     const increment = duration / steps;
-    
+
     let current = 0;
     const interval = setInterval(() => {
       current++;
@@ -24,15 +87,15 @@ export function HeroSection() {
       setCounters({
         jobs: Math.floor(targets.jobs * progress),
         companies: Math.floor(targets.companies * progress),
-        candidates: Math.floor(targets.candidates * progress),
-        success: Math.floor(targets.success * progress),
+        institutions: Math.floor(targets.institutions * progress),
+        courses: Math.floor(targets.courses * progress),
       });
-      
+
       if (current >= steps) clearInterval(interval);
     }, increment);
-    
+
     return () => clearInterval(interval);
-  }, []);
+  }, [targets]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000) return `${(num / 1000).toFixed(0)}K+`;
@@ -67,7 +130,7 @@ export function HeroSection() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-success opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-success"></span>
             </span>
-            Trusted by 5,000+ companies worldwide
+            Trusted by {formatNumber(counters.companies)} companies worldwide
           </div>
 
           {/* Main heading */}
@@ -147,8 +210,8 @@ export function HeroSection() {
             {[
               { label: "Active Jobs", value: formatNumber(counters.jobs), icon: Briefcase },
               { label: "Companies", value: formatNumber(counters.companies), icon: Building2 },
-              { label: "Candidates", value: formatNumber(counters.candidates), icon: Users },
-              { label: "Success Rate", value: `${counters.success}%`, icon: TrendingUp },
+              { label: "Institutions", value: formatNumber(counters.institutions), icon: GraduationCap },
+              { label: "Courses", value: formatNumber(counters.courses), icon: BookOpen },
             ].map((stat) => (
               <div key={stat.label} className="text-center">
                 <div className="inline-flex items-center justify-center h-12 w-12 rounded-xl bg-white/10 backdrop-blur-sm mb-3">
