@@ -34,10 +34,11 @@ import {
   Globe,
   Loader2,
   Calendar,
-  Gift,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 type Status = "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
 
@@ -91,6 +92,7 @@ export default function ViewCompany() {
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectDialog, setRejectDialog] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
+  const [logoError, setLogoError] = useState(false);
 
   const fetchCompany = async () => {
     setLoading(true);
@@ -107,6 +109,18 @@ export default function ViewCompany() {
   useEffect(() => {
     fetchCompany();
   }, [id]);
+
+  useEffect(() => {
+    setLogoError(false);
+  }, [company?.companyId, company?.profilePic]);
+
+  const resolveImageUrl = (path?: string) => {
+    if (!path) return "";
+    const value = path.trim();
+    if (!value) return "";
+    if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+    return `${API_BASE}${value.startsWith("/") ? value : `/${value}`}`;
+  };
 
   const approve = async () => {
     setActionLoading(true);
@@ -263,6 +277,24 @@ export default function ViewCompany() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Company Image</p>
+                <div className="h-20 w-20 rounded-xl border border-border bg-muted overflow-hidden flex items-center justify-center">
+                  {company.profilePic && !logoError ? (
+                    <img
+                      src={resolveImageUrl(company.profilePic)}
+                      alt={`${company.companyName} logo`}
+                      className="h-full w-full object-cover"
+                      onError={() => setLogoError(true)}
+                    />
+                  ) : (
+                    <Building className="h-8 w-8 text-muted-foreground" />
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-sm text-muted-foreground">Company Name</p>

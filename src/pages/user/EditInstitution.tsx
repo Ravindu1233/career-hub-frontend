@@ -166,7 +166,7 @@ export default function EditInstitution() {
       setLogoPreview(null);
       toast({
         title: "Institution updated",
-        description: `${formData.name} has been updated successfully.`,
+        description: `${formData.name} has been updated and is now pending re-approval by admin.`,
       });
       navigate("/user/institutions");
     } catch (error: any) {

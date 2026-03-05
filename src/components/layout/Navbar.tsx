@@ -149,6 +149,7 @@ function NotificationBell({ authType }: { authType: string }) {
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const POLL_MS = 10_000;
 
   const endpoint =
     authType === "COMPANY" ? "/notifications/company" : "/notifications/user";
@@ -164,14 +165,27 @@ function NotificationBell({ authType }: { authType: string }) {
     }
   };
 
-  // Poll every 30 seconds for new notifications
   useEffect(() => {
     fetchNotifications();
-    pollRef.current = setInterval(fetchNotifications, 30_000);
+    pollRef.current = setInterval(fetchNotifications, POLL_MS);
+
+    const handleFocus = () => fetchNotifications();
+    const handleVisible = () => {
+      if (document.visibilityState === "visible") fetchNotifications();
+    };
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisible);
+
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisible);
     };
   }, [authType]);
+
+  useEffect(() => {
+    if (open) fetchNotifications();
+  }, [open]);
 
   const markAllRead = async () => {
     try {

@@ -81,8 +81,15 @@ export default function ViewJob() {
       setError(null);
 
       try {
-        const response = await api.get(`/jobs/${id}`);
-        setJob(response.data);
+        const response = await api.get("/jobs/company/me");
+        const jobs = Array.isArray(response.data) ? response.data : [];
+        const found = jobs.find((item: Job) => item.id === id);
+
+        if (!found) {
+          throw new Error("Job not found");
+        }
+
+        setJob(found);
       } catch (err: any) {
         setError(err?.response?.data?.message || "Failed to load job details");
         toast({
@@ -107,7 +114,7 @@ export default function ViewJob() {
         title: "Success",
         description: "Job deleted successfully",
       });
-      navigate("/company/dashboard");
+      navigate("/company/jobs");
     } catch (err: any) {
       toast({
         title: "Error",
@@ -137,8 +144,8 @@ export default function ViewJob() {
             {error || "Job not found"}
           </p>
           <div className="text-center mt-4">
-            <Link to="/company/dashboard">
-              <Button variant="outline">Back to Dashboard</Button>
+            <Link to="/company/jobs">
+              <Button variant="outline">Back to Jobs</Button>
             </Link>
           </div>
         </div>
@@ -154,13 +161,7 @@ export default function ViewJob() {
           <BreadcrumbList>
             <BreadcrumbItem>
               <BreadcrumbLink asChild>
-                <Link to="/company/dashboard">Dashboard</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild>
-                <Link to="/company/dashboard">Jobs</Link>
+                <Link to="/company/jobs">Jobs</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
@@ -173,7 +174,7 @@ export default function ViewJob() {
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
           <div className="flex items-center gap-4">
-            <Link to="/company/dashboard">
+            <Link to="/company/jobs">
               <Button variant="outline" size="icon">
                 <ArrowLeft className="h-4 w-4" />
               </Button>

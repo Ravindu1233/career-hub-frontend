@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "@/lib/api";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,11 @@ import {
   AlertCircle,
   Clock,
   CheckCircle,
+  ImageIcon,
+  ArrowLeft,
 } from "lucide-react";
+
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 type CompanyMeApi = {
   companyId: number;
@@ -48,6 +53,7 @@ type CompanyProfileUI = {
   founded: string;
   description: string;
   benefits: string[];
+  profilePic: string;
   status: CompanyMeApi["status"];
   rejectionReason: string;
 };
@@ -74,9 +80,18 @@ function toUI(apiData: CompanyMeApi): CompanyProfileUI {
       : "",
     description: apiData.description ?? "",
     benefits: parseBenefits(apiData.benefitsAndPerks),
+    profilePic: apiData.profilePic ?? "",
     status: apiData.status,
     rejectionReason: apiData.rejectionReason ?? "",
   };
+}
+
+function resolveImageUrl(path?: string | null): string {
+  if (!path) return "";
+  const value = path.trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+  return `${API_BASE}${value.startsWith("/") ? value : `/${value}`}`;
 }
 
 function StatusBanner({
@@ -148,6 +163,7 @@ function StatusBanner({
 }
 
 export default function CompanyProfile() {
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profile, setProfile] = useState<CompanyProfileUI>({
     name: "",
@@ -160,6 +176,7 @@ export default function CompanyProfile() {
     founded: "",
     description: "",
     benefits: [],
+    profilePic: "",
     status: "PENDING",
     rejectionReason: "",
   });
@@ -167,6 +184,7 @@ export default function CompanyProfile() {
   const [editedProfile, setEditedProfile] = useState<CompanyProfileUI>(profile);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [savingProfile, setSavingProfile] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [benefitInput, setBenefitInput] = useState("");
 
@@ -178,8 +196,8 @@ export default function CompanyProfile() {
     loadProfile();
   }, []);
 
-  const loadProfile = async () => {
-    setLoadingProfile(true);
+  const loadProfile = async (silent = false) => {
+    if (!silent) setLoadingProfile(true);
     setError(null);
     try {
       const res = await api.get("/companies/me");
@@ -189,7 +207,7 @@ export default function CompanyProfile() {
     } catch (e: any) {
       setError(e?.response?.data?.message || "Failed to load profile");
     } finally {
-      setLoadingProfile(false);
+      if (!silent) setLoadingProfile(false);
     }
   };
 
@@ -252,6 +270,27 @@ export default function CompanyProfile() {
     }));
   };
 
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingLogo(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("image", file);
+      await api.post("/profile/company/image", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      await loadProfile(true);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || "Failed to upload company logo");
+    } finally {
+      setUploadingLogo(false);
+      e.currentTarget.value = "";
+    }
+  };
+
   if (loadingProfile) {
     return (
       <MainLayout>
@@ -265,6 +304,13 @@ export default function CompanyProfile() {
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
+        <Link to="/company/dashboard">
+          <Button variant="ghost" className="gap-2 mb-4">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
+
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground">
             Company Profile
@@ -328,13 +374,41 @@ export default function CompanyProfile() {
             <div className="flex flex-col md:flex-row gap-6">
               {/* Logo */}
               <div className="flex flex-col items-center gap-3">
-                <div className="h-24 w-24 rounded-xl bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
-                  {profile.name.charAt(0)}
+                <div className="h-24 w-24 rounded-xl bg-primary/10 overflow-hidden flex items-center justify-center text-3xl font-bold text-primary">
+                  {profile.profilePic ? (
+                    <img
+                      src={resolveImageUrl(profile.profilePic)}
+                      alt={`${profile.name} logo`}
+                      className="h-full w-full object-cover"
+                      onError={(evt) => {
+                        (evt.currentTarget as HTMLImageElement).style.display =
+                          "none";
+                      }}
+                    />
+                  ) : profile.name ? (
+                    profile.name.charAt(0)
+                  ) : (
+                    <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                  )}
                 </div>
                 {isEditingProfile && (
-                  <Button variant="outline" size="sm">
-                    Change Logo
-                  </Button>
+                  <>
+                    <input
+                      ref={logoInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleLogoChange}
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => logoInputRef.current?.click()}
+                      disabled={uploadingLogo || savingProfile}
+                    >
+                      {uploadingLogo ? "Uploading..." : "Change Logo"}
+                    </Button>
+                  </>
                 )}
               </div>
 

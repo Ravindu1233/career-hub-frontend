@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import { Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,7 @@ import {
   Briefcase,
   TrendingUp,
   Send,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -277,6 +279,13 @@ export default function CompanyApplications() {
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
+        <Link to="/company/dashboard">
+          <Button variant="ghost" className="gap-2 mb-4">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
+        </Link>
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-foreground mb-2">
