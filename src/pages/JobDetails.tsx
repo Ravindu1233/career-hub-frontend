@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 
 type JobType = Job["type"];
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 function timeAgo(dateString?: string) {
   if (!dateString) return "Recently";
@@ -85,6 +86,22 @@ function splitToList(text?: string) {
   }
   return parts;
 }
+
+function resolveCompanyImageUrl(path?: string | null) {
+  if (!path) return "";
+  const value = path.trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+  return `${API_BASE}${value.startsWith("/") ? value : `/${value}`}`;
+}
+
+function getCompanyInitials(name: string) {
+  const parts = (name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "CO";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return `${parts[0][0] ?? "C"}${parts[1][0] ?? "O"}`.toUpperCase();
+}
+
 function formatDateShort(dateString?: string) {
   if (!dateString) return "—";
   const d = new Date(dateString);
@@ -244,6 +261,8 @@ export default function JobDetails() {
   const companyName = String(
     company?.companyName ?? jobCardModel?.company ?? "Unknown Company",
   );
+  const companyProfilePic = resolveCompanyImageUrl(company?.profilePic ?? "");
+  const companyInitials = getCompanyInitials(companyName);
   const companyIndustry = String(company?.industry ?? "");
   const companySize = String(company?.companySize ?? "");
   const companyWebsite = String(company?.url ?? "");
@@ -342,8 +361,22 @@ export default function JobDetails() {
             {/* Left: Job info */}
             <div className="flex-1">
               <div className="flex items-start gap-4 mb-4">
-                <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-card border border-border/50 flex items-center justify-center flex-shrink-0 shadow-card">
-                  <Building2 className="h-8 w-8 lg:h-10 lg:w-10 text-muted-foreground" />
+                <div className="h-16 w-16 lg:h-20 lg:w-20 rounded-2xl bg-card border border-border/50 flex items-center justify-center flex-shrink-0 shadow-card overflow-hidden">
+                  {companyProfilePic ? (
+                    <img
+                      src={companyProfilePic}
+                      alt={`${companyName} logo`}
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display =
+                          "none";
+                      }}
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-muted-foreground font-semibold">
+                      {companyInitials}
+                    </div>
+                  )}
                 </div>
                 <div>
                   <h1 className="text-2xl lg:text-3xl font-bold text-foreground mb-2">
@@ -574,9 +607,23 @@ export default function JobDetails() {
               {activeTab === "company" && (
                 <div className="space-y-6">
                   <div className="p-6 rounded-2xl bg-card border border-border/50 shadow-card">
-                    <div className="flex items-start gap-4 mb-6">
-                      <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center">
-                        <Building2 className="h-8 w-8 text-muted-foreground" />
+                  <div className="flex items-start gap-4 mb-6">
+                      <div className="h-16 w-16 rounded-2xl bg-muted flex items-center justify-center overflow-hidden">
+                        {companyProfilePic ? (
+                          <img
+                            src={companyProfilePic}
+                            alt={`${companyName} logo`}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).style.display =
+                                "none";
+                            }}
+                          />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-muted-foreground font-semibold">
+                            {companyInitials}
+                          </div>
+                        )}
                       </div>
                       <div>
                         <h3 className="text-xl font-semibold text-foreground">
@@ -665,8 +712,22 @@ export default function JobDetails() {
                     About the Company
                   </h3>
                   <div className="flex items-center gap-3 mb-4">
-                    <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center">
-                      <Building2 className="h-6 w-6 text-muted-foreground" />
+                    <div className="h-12 w-12 rounded-xl bg-muted flex items-center justify-center overflow-hidden">
+                      {companyProfilePic ? (
+                        <img
+                          src={companyProfilePic}
+                          alt={`${companyName} logo`}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).style.display =
+                              "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="h-full w-full flex items-center justify-center text-muted-foreground font-semibold text-xs">
+                          {companyInitials}
+                        </div>
+                      )}
                     </div>
                     <div>
                       <p className="font-medium text-foreground">

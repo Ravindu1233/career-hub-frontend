@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   GraduationCap,
   Plus,
@@ -22,6 +23,7 @@ import { api } from "@/lib/api";
 // =============================
 const API_MY_INSTITUTIONS = "/institutions/my-institutions";
 const API_DELETE_INSTITUTION = (id: string) => `/institutions/${id}`;
+const API_USER_ME = "/users/me";
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // =============================
@@ -40,6 +42,17 @@ interface Institution {
   students?: string | null;
   createdAt: string;
   courses?: any[];
+  status?: "PENDING" | "APPROVED" | "REJECTED" | "SUSPENDED";
+  rejectionReason?: string | null;
+}
+
+interface UserMe {
+  firstName?: string | null;
+  lastName?: string | null;
+  email?: string | null;
+  mobile?: string | null;
+  address?: string | null;
+  dob?: string | null;
 }
 
 export default function MyInstitutions() {
@@ -67,6 +80,14 @@ export default function MyInstitutions() {
     queryFn: async () => {
       const res = await api.get(API_MY_INSTITUTIONS);
       return (res.data ?? []) as Institution[];
+    },
+  });
+
+  const { data: user, isLoading: userLoading } = useQuery({
+    queryKey: ["user-me"],
+    queryFn: async () => {
+      const res = await api.get(API_USER_ME);
+      return res.data as UserMe;
     },
   });
 
@@ -99,6 +120,58 @@ export default function MyInstitutions() {
     }
   };
 
+  const getInstitutionStatusBadge = (status?: Institution["status"]) => {
+    const s = String(status || "PENDING").toUpperCase();
+    if (s === "APPROVED") {
+      return <Badge className="bg-green-500/10 text-green-600">Approved</Badge>;
+    }
+    if (s === "REJECTED") {
+      return (
+        <Badge className="bg-destructive/10 text-destructive">Rejected</Badge>
+      );
+    }
+    if (s === "SUSPENDED") {
+      return <Badge className="bg-orange-500/10 text-orange-600">Suspended</Badge>;
+    }
+    return <Badge className="bg-muted text-muted-foreground">Pending</Badge>;
+  };
+
+  const getMissingProfileFields = () => {
+    const fullName = `${user?.firstName ?? ""} ${user?.lastName ?? ""}`.trim();
+    const missing: string[] = [];
+
+    if (!fullName) missing.push("Full Name");
+    if (!user?.email?.trim()) missing.push("Email");
+    if (!user?.mobile?.trim()) missing.push("Phone");
+    if (!user?.address?.trim()) missing.push("Location");
+    if (!user?.dob?.trim()) missing.push("Date of Birth");
+
+    return missing;
+  };
+
+  const handleAddInstitutionClick = () => {
+    if (userLoading) {
+      toast({
+        title: "Please wait",
+        description: "Loading your profile details...",
+      });
+      return;
+    }
+
+    const missing = getMissingProfileFields();
+    if (missing.length > 0) {
+      toast({
+        title: "Complete your profile first",
+        description: `Please fill: ${missing.join(", ")}`,
+        variant: "destructive",
+      });
+      navigate("/user/profile");
+      return;
+    }
+
+    navigate("/user/institutions/add");
+  };
+
   return (
     <MainLayout>
       <div className="container mx-auto px-4 py-8">
@@ -119,12 +192,10 @@ export default function MyInstitutions() {
               Manage your educational institutions and their courses
             </p>
           </div>
-          <Link to="/user/institutions/add">
-            <Button className="gap-2">
+          <Button className="gap-2" onClick={handleAddInstitutionClick}>
               <Plus className="h-4 w-4" />
               Add Institution
-            </Button>
-          </Link>
+          </Button>
         </div>
 
         {isLoading ? (
@@ -161,12 +232,10 @@ export default function MyInstitutions() {
               <p className="text-muted-foreground mb-4">
                 Start by adding your first educational institution
               </p>
-              <Link to="/user/institutions/add">
-                <Button className="gap-2">
+              <Button className="gap-2" onClick={handleAddInstitutionClick}>
                   <Plus className="h-4 w-4" />
                   Add Institution
-                </Button>
-              </Link>
+              </Button>
             </CardContent>
           </Card>
         ) : (
@@ -203,6 +272,9 @@ export default function MyInstitutions() {
                           <h3 className="text-lg font-semibold text-foreground">
                             {inst.name}
                           </h3>
+                          <div className="mt-1">
+                            {getInstitutionStatusBadge(inst.status)}
+                          </div>
                           <div className="flex flex-wrap items-center gap-3 mt-1 text-sm text-muted-foreground">
                             {inst.location && (
                               <>
@@ -239,12 +311,14 @@ export default function MyInstitutions() {
                             View
                           </Button>
                         </Link>
+
                         <Link to={`/user/institutions/${inst.id}/edit`}>
                           <Button variant="outline" size="sm" className="gap-1">
                             <Edit3 className="h-4 w-4" />
                             Edit
                           </Button>
                         </Link>
+
                         <Link to={`/user/institutions/${inst.id}/courses`}>
                           <Button variant="outline" size="sm" className="gap-1">
                             <BookOpen className="h-4 w-4" />

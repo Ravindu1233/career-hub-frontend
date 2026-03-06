@@ -26,7 +26,6 @@ import {
   Phone,
   MapPin,
   Ban,
-  XCircle,
   RotateCcw,
   Loader2,
   Calendar,
@@ -73,7 +72,6 @@ function getAllowedActions(status: Status) {
   return {
     canSuspend: status !== "SUSPENDED",
     canReinstate: status === "SUSPENDED",
-    canReject: status !== "REJECTED",
   };
 }
 
@@ -85,8 +83,6 @@ export default function ViewUser() {
   const [actionLoading, setActionLoading] = useState(false);
   const [suspendDialog, setSuspendDialog] = useState(false);
   const [suspendReason, setSuspendReason] = useState("");
-  const [rejectDialog, setRejectDialog] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
 
   const fetchUser = async () => {
     setLoading(true);
@@ -134,24 +130,6 @@ export default function ViewUser() {
     }
   };
 
-  const reject = async () => {
-    if (!rejectReason.trim()) return;
-    setActionLoading(true);
-    try {
-      await api.patch(`/admin/users/${id}/reject`, {
-        rejectionReason: rejectReason.trim(),
-      });
-      toast({ title: "User rejected" });
-      setRejectDialog(false);
-      setRejectReason("");
-      fetchUser();
-    } catch {
-      toast({ title: "Failed to reject", variant: "destructive" });
-    } finally {
-      setActionLoading(false);
-    }
-  };
-
   if (loading) {
     return (
       <AdminLayout>
@@ -177,9 +155,7 @@ export default function ViewUser() {
     );
   }
 
-  const { canSuspend, canReinstate, canReject } = getAllowedActions(
-    user.status,
-  );
+  const { canSuspend, canReinstate } = getAllowedActions(user.status);
   const fullName =
     [user.firstName, user.lastName].filter(Boolean).join(" ") || "No name";
 
@@ -221,19 +197,6 @@ export default function ViewUser() {
               >
                 <Ban className="h-4 w-4 mr-2" />
                 Suspend
-              </Button>
-            )}
-            {canReject && (
-              <Button
-                variant="destructive"
-                onClick={() => {
-                  setRejectDialog(true);
-                  setRejectReason("");
-                }}
-                disabled={actionLoading}
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Reject
               </Button>
             )}
           </div>
@@ -441,39 +404,6 @@ export default function ViewUser() {
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               )}
               Confirm Suspend
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialog} onOpenChange={setRejectDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reject User</DialogTitle>
-            <DialogDescription>
-              Provide a reason. This reason will be shown to the user.
-            </DialogDescription>
-          </DialogHeader>
-          <Textarea
-            placeholder="e.g. Incomplete or invalid account information..."
-            value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
-            rows={3}
-          />
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
-              disabled={!rejectReason.trim() || actionLoading}
-              onClick={reject}
-            >
-              {actionLoading && (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              )}
-              Confirm Reject
             </Button>
           </DialogFooter>
         </DialogContent>

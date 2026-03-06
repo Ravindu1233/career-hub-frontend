@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Plus, Edit3, Trash2, Eye, ArrowLeft } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 const getStatusBadge = (status: string) => {
   const statusConfig: Record<
@@ -49,6 +50,7 @@ const getStatusBadge = (status: string) => {
 };
 
 export default function CompanyJobs() {
+  const { toast } = useToast();
   const [jobs, setJobs] = useState<any[]>([]);
   const [loadingJobs, setLoadingJobs] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +90,19 @@ export default function CompanyJobs() {
 
     try {
       await api.delete(`/jobs/${jobId}`);
+      toast({
+        title: "Job deleted",
+        description: "Job has been deleted successfully.",
+      });
       loadJobs();
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Failed to delete job");
+      const message = e?.response?.data?.message || "Failed to delete job";
+      setError(message);
+      toast({
+        title: "Failed to delete job",
+        description: message,
+        variant: "destructive",
+      });
     }
   };
 
@@ -111,11 +123,21 @@ export default function CompanyJobs() {
         requiredSkills: newJob.requiredSkills.map((x) => x.trim()).filter(Boolean),
       });
 
+      toast({
+        title: "Job posted",
+        description: "New job has been created successfully.",
+      });
       loadJobs();
       setIsAddJobOpen(false);
       resetForm();
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Failed to post job");
+      const message = e?.response?.data?.message || "Failed to post job";
+      setError(message);
+      toast({
+        title: "Failed to post job",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setPostingJob(false);
     }
@@ -133,6 +155,32 @@ export default function CompanyJobs() {
       responsibilities: [""],
       requiredSkills: [""],
     });
+  };
+
+  const handleAddResponsibilityField = () => {
+    const last = newJob.responsibilities[newJob.responsibilities.length - 1];
+    if (!last?.trim()) {
+      setError("Please fill the current responsibility before adding another.");
+      return;
+    }
+    setError(null);
+    setNewJob((p) => ({
+      ...p,
+      responsibilities: [...p.responsibilities, ""],
+    }));
+  };
+
+  const handleAddSkillField = () => {
+    const last = newJob.requiredSkills[newJob.requiredSkills.length - 1];
+    if (!last?.trim()) {
+      setError("Please fill the current skill before adding another.");
+      return;
+    }
+    setError(null);
+    setNewJob((p) => ({
+      ...p,
+      requiredSkills: [...p.requiredSkills, ""],
+    }));
   };
 
   return (
@@ -266,6 +314,7 @@ export default function CompanyJobs() {
                           value={item}
                           onChange={(e) => {
                             const v = e.target.value;
+                            setError(null);
                             setNewJob((p) => {
                               const next = [...p.responsibilities];
                               next[idx] = v;
@@ -295,12 +344,7 @@ export default function CompanyJobs() {
                     type="button"
                     variant="outline"
                     className="mt-2"
-                    onClick={() =>
-                      setNewJob((p) => ({
-                        ...p,
-                        responsibilities: [...p.responsibilities, ""],
-                      }))
-                    }
+                    onClick={handleAddResponsibilityField}
                   >
                     + Add Responsibility
                   </Button>
@@ -317,6 +361,7 @@ export default function CompanyJobs() {
                           value={item}
                           onChange={(e) => {
                             const v = e.target.value;
+                            setError(null);
                             setNewJob((p) => {
                               const next = [...p.requiredSkills];
                               next[idx] = v;
@@ -346,12 +391,7 @@ export default function CompanyJobs() {
                     type="button"
                     variant="outline"
                     className="mt-2"
-                    onClick={() =>
-                      setNewJob((p) => ({
-                        ...p,
-                        requiredSkills: [...p.requiredSkills, ""],
-                      }))
-                    }
+                    onClick={handleAddSkillField}
                   >
                     + Add Skill
                   </Button>

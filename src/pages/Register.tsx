@@ -15,6 +15,7 @@ import {
   Check,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 type UserType = "jobseeker" | "employer";
 
@@ -57,6 +58,7 @@ function getErrorMessage(err: any): string {
 
 export default function Register() {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [userType, setUserType] = useState<UserType>("jobseeker");
   const [formData, setFormData] = useState({
@@ -92,11 +94,23 @@ export default function Register() {
 
     // basic frontend validations
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match.");
+      const message = "Passwords do not match.";
+      setError(message);
+      toast({
+        title: "Registration failed",
+        description: message,
+        variant: "destructive",
+      });
       return;
     }
     if (!passwordOk) {
-      setError("Please meet all password requirements.");
+      const message = "Please meet all password requirements.";
+      setError(message);
+      toast({
+        title: "Registration failed",
+        description: message,
+        variant: "destructive",
+      });
       return;
     }
 
@@ -120,6 +134,10 @@ export default function Register() {
         localStorage.setItem("authType", "USER");
 
         setSuccess("Account created successfully!");
+        toast({
+          title: "Registration successful",
+          description: "Your account has been created. Please log in.",
+        });
         // go to login or dashboard
         navigate("/login");
       } else {
@@ -138,10 +156,20 @@ export default function Register() {
         localStorage.setItem("authType", "COMPANY");
 
         setSuccess("Company account created successfully!");
+        toast({
+          title: "Registration successful",
+          description: "Your company account has been created. Please log in.",
+        });
         navigate("/login");
       }
     } catch (err: any) {
-      setError(getErrorMessage(err));
+      const message = getErrorMessage(err);
+      setError(message);
+      toast({
+        title: "Registration failed",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }

@@ -43,19 +43,24 @@ const companySizes = [
 ];
 
 type CompanyApi = {
-  companyId: number;
-  companyName: string;
+  companyId?: number | string;
+  id?: number | string;
+  companyName?: string | null;
+  name?: string | null;
   industry?: string | null;
   location?: string | null;
+  address?: string | null;
   companySize?: string | null;
   description?: string | null;
-  openJobs?: number | null;
+  profilePic?: string | null;
+  openJobs?: number | string | null;
 };
 
 type CompanyUI = {
-  id: number;
+  id: string;
   name: string;
-  logo: string;
+  logoText: string;
+  logoUrl: string | null;
   industry: string;
   location: string;
   size: string;
@@ -72,16 +77,30 @@ function initials(name: string) {
 }
 
 function toUI(c: CompanyApi): CompanyUI {
+  const rawId = c.companyId ?? c.id;
+  const id = rawId != null ? String(rawId) : "";
+  const name = (c.companyName ?? c.name ?? "").trim();
+  const openJobsNum =
+    typeof c.openJobs === "number"
+      ? c.openJobs
+      : Number.parseInt(String(c.openJobs ?? "0"), 10);
+  const base = import.meta.env.VITE_API_URL || "http://localhost:3000";
+  const profilePic = (c.profilePic || "").trim();
+  const logoUrl = profilePic
+    ? /^https?:\/\//i.test(profilePic)
+      ? profilePic
+      : `${base}${profilePic.startsWith("/") ? profilePic : `/${profilePic}`}`
+    : null;
+
   return {
-    id: c.companyId,
-    name: c.companyName ?? "",
-    logo: initials(c.companyName ?? ""),
+    id,
+    name: name || "Company",
+    logoText: initials(name || "Company"),
+    logoUrl,
     industry: c.industry ?? "Unknown",
-    location: c.location ?? "—",
+    location: c.location ?? c.address ?? "—",
     size: c.companySize ?? "—",
-    openJobs: Number.isFinite(c.openJobs as number)
-      ? (c.openJobs as number)
-      : 0,
+    openJobs: Number.isFinite(openJobsNum) ? Math.max(0, openJobsNum) : 0,
     description: c.description ?? "",
   };
 }
@@ -101,8 +120,15 @@ export default function Companies() {
       setError(null);
       try {
         const res = await api.get("/companies");
-        const list = Array.isArray(res.data) ? (res.data as CompanyApi[]) : [];
-        setCompanies(list.map(toUI));
+        const raw = res.data;
+        const list = Array.isArray(raw)
+          ? (raw as CompanyApi[])
+          : Array.isArray(raw?.companies)
+            ? (raw.companies as CompanyApi[])
+            : Array.isArray(raw?.data)
+              ? (raw.data as CompanyApi[])
+              : [];
+        setCompanies(list.map(toUI).filter((c) => !!c.id));
       } catch (e: any) {
         setError(e?.response?.data?.message || "Failed to load companies");
         setCompanies([]);
@@ -222,7 +248,19 @@ export default function Companies() {
               >
                 <div className="flex items-start gap-4 mb-4">
                   <div className="w-16 h-16 rounded-xl bg-primary/10 flex items-center justify-center text-primary font-bold text-xl flex-shrink-0">
-                    {company.logo}
+                    {company.logoUrl ? (
+                      <img
+                        src={company.logoUrl}
+                        alt={`${company.name} logo`}
+                        className="h-full w-full rounded-xl object-cover"
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).style.display =
+                            "none";
+                        }}
+                      />
+                    ) : (
+                      company.logoText
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

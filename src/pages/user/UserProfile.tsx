@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 // =============================
 // API Endpoints
@@ -124,6 +125,7 @@ function formatDate(iso?: string) {
 export default function UserProfile() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [isEditing, setIsEditing] = useState(false);
   const [newSkill, setNewSkill] = useState("");
@@ -168,9 +170,19 @@ export default function UserProfile() {
       setProfile(ui);
       setEditedProfile(ui);
       setIsEditing(false);
+      toast({
+        title: "Profile updated",
+        description: "Your profile has been updated successfully.",
+      });
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error("Update error:", error);
+      toast({
+        title: "Failed to update profile",
+        description:
+          error?.response?.data?.message || "An error occurred while saving.",
+        variant: "destructive",
+      });
     },
   });
 
@@ -242,6 +254,17 @@ export default function UserProfile() {
       });
 
       await queryClient.invalidateQueries({ queryKey: ["user-me"] });
+      toast({
+        title: "Photo updated",
+        description: "Profile photo uploaded successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to upload photo",
+        description:
+          error?.response?.data?.message || "Could not upload profile photo.",
+        variant: "destructive",
+      });
     } finally {
       setUploadingPic(false);
     }
@@ -252,6 +275,17 @@ export default function UserProfile() {
     try {
       await api.delete(API_USER_IMAGE_DELETE);
       await queryClient.invalidateQueries({ queryKey: ["user-me"] });
+      toast({
+        title: "Photo removed",
+        description: "Profile photo removed successfully.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to remove photo",
+        description:
+          error?.response?.data?.message || "Could not remove profile photo.",
+        variant: "destructive",
+      });
     } finally {
       setUploadingPic(false);
     }

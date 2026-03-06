@@ -33,6 +33,7 @@ import {
 // =============================
 const API_MY_APPLICATIONS = "/applications/my-applications";
 const API_MY_INTERVIEWS = "/interviews/my-interviews";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 // =============================
 // Backend Types
@@ -87,6 +88,8 @@ function normalizeStatus(status: string) {
   const s = (status || "").toUpperCase();
   if (s === "APPLIED") return "under_review";
   if (s === "UNDER_REVIEW") return "under_review";
+  if (s === "PENDING") return "under_review";
+  if (s === "SHORTLISTED") return "shortlisted";
   if (s === "INTERVIEW_SCHEDULED" || s === "INTERVIEW")
     return "interview_scheduled";
   if (s === "OFFERED") return "offered";
@@ -104,7 +107,12 @@ const getStatusBadge = (status: string) => {
       icon: typeof Clock;
     }
   > = {
-    under_review: { label: "Under Review", variant: "secondary", icon: Clock },
+    under_review: { label: "Pending", variant: "secondary", icon: Clock },
+    shortlisted: {
+      label: "Shortlisted",
+      variant: "default",
+      icon: CheckCircle,
+    },
     interview_scheduled: {
       label: "Interview Scheduled",
       variant: "default",
@@ -153,6 +161,14 @@ const getInterviewIcon = (type: string) => {
   }
 };
 
+function resolveCompanyImageUrl(path?: string | null) {
+  if (!path) return "";
+  const value = path.trim();
+  if (!value) return "";
+  if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+  return `${API_BASE}${value.startsWith("/") ? value : `/${value}`}`;
+}
+
 // =============================
 // Main Component
 // =============================
@@ -160,6 +176,9 @@ export default function MyApplications() {
   const [searchQuery, setSearchQuery] = useState("");
   const navigate = useNavigate();
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [brokenCompanyLogoIds, setBrokenCompanyLogoIds] = useState<
+    Record<string, true>
+  >({});
   const [selectedInterview, setSelectedInterview] = useState<Interview | null>(
     null,
   );
@@ -323,7 +342,7 @@ export default function MyApplications() {
                   onClick={() => setStatusFilter("under_review")}
                 >
                   <Clock className="h-4 w-4 mr-1" />
-                  Review
+                  Pending
                 </Button>
                 <Button
                   variant={
@@ -381,6 +400,10 @@ export default function MyApplications() {
                   const status = normalizeStatus(a.status);
                   const appliedDate = formatDate(a.createdAt);
                   const interview = getInterviewForApplication(a.id);
+                  const companyId = String(a.job?.company?.companyId ?? a.id);
+                  const companyLogoUrl = resolveCompanyImageUrl(
+                    a.job?.company?.profilePic,
+                  );
 
                   const companyLogoLetter = (companyName || "C")
                     .charAt(0)
@@ -393,7 +416,21 @@ export default function MyApplications() {
                     >
                       <div className="flex items-center gap-4">
                         <div className="h-12 w-12 rounded-lg bg-primary/10 flex items-center justify-center text-lg font-bold text-primary">
-                          {companyLogoLetter}
+                          {companyLogoUrl && !brokenCompanyLogoIds[companyId] ? (
+                            <img
+                              src={companyLogoUrl}
+                              alt={`${companyName} logo`}
+                              className="h-full w-full rounded-lg object-cover"
+                              onError={() =>
+                                setBrokenCompanyLogoIds((prev) => ({
+                                  ...prev,
+                                  [companyId]: true,
+                                }))
+                              }
+                            />
+                          ) : (
+                            companyLogoLetter
+                          )}
                         </div>
                         <div>
                           <h3 className="font-semibold text-foreground">

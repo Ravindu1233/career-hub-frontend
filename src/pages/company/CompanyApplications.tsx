@@ -136,6 +136,7 @@ export default function CompanyApplications() {
   const [jobFilter, setJobFilter] = useState("all");
   const [selectedApplication, setSelectedApplication] =
     useState<ApplicationFromAPI | null>(null);
+  const [statusUpdatingId, setStatusUpdatingId] = useState<string | null>(null);
 
   // ✅ Interview scheduling state
   const [isScheduleInterviewOpen, setIsScheduleInterviewOpen] = useState(false);
@@ -148,12 +149,28 @@ export default function CompanyApplications() {
   });
   const [schedulingInterview, setSchedulingInterview] = useState(false);
 
+  const updateApplicationStatusInState = (
+    applicationId: string,
+    newStatus: string,
+  ) => {
+    setApplications((prev) =>
+      prev.map((app) =>
+        app.id === applicationId ? { ...app, status: newStatus } : app,
+      ),
+    );
+    setSelectedApplication((prev) =>
+      prev && prev.id === applicationId ? { ...prev, status: newStatus } : prev,
+    );
+  };
+
   useEffect(() => {
     loadApplications();
   }, []);
 
-  const loadApplications = async () => {
-    setLoadingApplications(true);
+  const loadApplications = async (showLoader = true) => {
+    if (showLoader) {
+      setLoadingApplications(true);
+    }
     setError(null);
     try {
       const res = await api.get("/applications/company/all");
@@ -162,7 +179,9 @@ export default function CompanyApplications() {
       setError(e?.response?.data?.message || "Failed to load applications");
       toast.error("Failed to load applications");
     } finally {
-      setLoadingApplications(false);
+      if (showLoader) {
+        setLoadingApplications(false);
+      }
     }
   };
 
@@ -170,22 +189,25 @@ export default function CompanyApplications() {
     applicationId: string,
     newStatus: string,
   ) => {
+    const previousStatus =
+      applications.find((app) => app.id === applicationId)?.status || "";
+    setStatusUpdatingId(applicationId);
+    updateApplicationStatusInState(applicationId, newStatus);
     try {
       await api.patch(`/applications/${applicationId}/status`, {
         status: newStatus,
       });
       toast.success("Application status updated successfully");
-      loadApplications();
-      if (selectedApplication?.id === applicationId) {
-        setSelectedApplication({
-          ...selectedApplication,
-          status: newStatus,
-        });
-      }
+      loadApplications(false);
     } catch (e: any) {
+      if (previousStatus) {
+        updateApplicationStatusInState(applicationId, previousStatus);
+      }
       const errorMsg = e?.response?.data?.message || "Failed to update status";
       setError(errorMsg);
       toast.error(errorMsg);
+    } finally {
+      setStatusUpdatingId(null);
     }
   };
 
@@ -221,6 +243,10 @@ export default function CompanyApplications() {
       });
 
       toast.success("Interview scheduled successfully!");
+      updateApplicationStatusInState(
+        selectedApplication.id,
+        "INTERVIEW_SCHEDULED",
+      );
       setIsScheduleInterviewOpen(false);
 
       // Reset form
@@ -232,8 +258,8 @@ export default function CompanyApplications() {
         meetingLink: "",
       });
 
-      // Reload applications to get updated status
-      loadApplications();
+      // Silent refresh to reconcile with server without blocking table UI
+      loadApplications(false);
     } catch (e: any) {
       const errorMsg =
         e?.response?.data?.message || "Failed to schedule interview";
@@ -676,6 +702,7 @@ export default function CompanyApplications() {
                                             className="gap-2"
                                             onClick={() => setIsScheduleInterviewOpen(true)}
                                             disabled={
+                                              schedulingInterview ||
                                               String(
                                                 selectedApplication.status || "",
                                               ).toUpperCase() !== "SHORTLISTED"
@@ -711,10 +738,17 @@ export default function CompanyApplications() {
                                                     "SHORTLISTED",
                                                   )
                                                 }
+                                                disabled={
+                                                  statusUpdatingId ===
+                                                  selectedApplication.id
+                                                }
                                                 className="bg-blue-500/10 text-blue-600 border-blue-500/20 hover:bg-blue-500/20"
                                               >
                                                 <TrendingUp className="h-4 w-4 mr-1" />
-                                                Shortlist
+                                                {statusUpdatingId ===
+                                                selectedApplication.id
+                                                  ? "Updating..."
+                                                  : "Shortlist"}
                                               </Button>
                                               <Button
                                                 size="sm"
@@ -725,10 +759,17 @@ export default function CompanyApplications() {
                                                     "REJECTED",
                                                   )
                                                 }
+                                                disabled={
+                                                  statusUpdatingId ===
+                                                  selectedApplication.id
+                                                }
                                                 className="bg-destructive/10 text-destructive border-destructive/20 hover:bg-destructive/20"
                                               >
                                                 <XCircle className="h-4 w-4 mr-1" />
-                                                Reject
+                                                {statusUpdatingId ===
+                                                selectedApplication.id
+                                                  ? "Updating..."
+                                                  : "Reject"}
                                               </Button>
                                             </div>
                                           ) : (

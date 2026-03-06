@@ -314,6 +314,7 @@ function NotificationBell({ authType }: { authType: string }) {
 // ─────────────────────────────────────────
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -341,6 +342,7 @@ export function Navbar() {
   };
 
   const handleLogout = () => {
+    setUserMenuOpen(false);
     localStorage.removeItem("token");
     localStorage.removeItem("authType");
     localStorage.removeItem("user");
@@ -353,6 +355,14 @@ export function Navbar() {
 
   const dashboardPath = getDashboardPath();
   const displayName = getDisplayName();
+  const myApplicationsPath =
+    authType === "COMPANY" ? "/company/applications" : "/user/applications";
+
+  const handleUserMenuNavigate = (path: string) => {
+    setUserMenuOpen(false);
+    handleNavClick();
+    navigate(path);
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
@@ -403,7 +413,11 @@ export function Navbar() {
                 )}
 
                 {/* User Menu */}
-                <DropdownMenu>
+                <DropdownMenu
+                  modal={false}
+                  open={userMenuOpen}
+                  onOpenChange={setUserMenuOpen}
+                >
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" className="gap-2">
                       <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -419,42 +433,31 @@ export function Navbar() {
                   </DropdownMenuTrigger>
 
                   <DropdownMenuContent align="end" className="w-56">
-                    <DropdownMenuItem asChild>
-                      <Link
-                        to={dashboardPath}
-                        onClick={handleNavClick}
-                        className="flex items-center gap-2"
-                      >
-                        <LayoutDashboard className="h-4 w-4" />
-                        Dashboard
-                      </Link>
+                    <DropdownMenuItem
+                      onClick={() => handleUserMenuNavigate(dashboardPath)}
+                      className="flex items-center gap-2"
+                    >
+                      <LayoutDashboard className="h-4 w-4" />
+                      Dashboard
                     </DropdownMenuItem>
 
                     {!isAdmin && (
                       <>
-                        <DropdownMenuItem asChild>
-                          <Link
-                            to={
-                              authType === "COMPANY"
-                                ? "/company/applications"
-                                : "/user/applications"
-                            }
-                            onClick={handleNavClick}
-                            className="flex items-center gap-2"
-                          >
-                            <User className="h-4 w-4" />
-                            My Applications
-                          </Link>
+                        <DropdownMenuItem
+                          onClick={() =>
+                            handleUserMenuNavigate(myApplicationsPath)
+                          }
+                          className="flex items-center gap-2"
+                        >
+                          <User className="h-4 w-4" />
+                          My Applications
                         </DropdownMenuItem>
-                        <DropdownMenuItem asChild>
-                          <Link
-                            to="/settings"
-                            onClick={handleNavClick}
-                            className="flex items-center gap-2"
-                          >
-                            <Settings className="h-4 w-4" />
-                            Settings
-                          </Link>
+                        <DropdownMenuItem
+                          onClick={() => handleUserMenuNavigate("/settings")}
+                          className="flex items-center gap-2"
+                        >
+                          <Settings className="h-4 w-4" />
+                          Settings
                         </DropdownMenuItem>
                       </>
                     )}

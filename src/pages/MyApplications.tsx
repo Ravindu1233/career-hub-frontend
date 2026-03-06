@@ -22,6 +22,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
 
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000";
+
 interface Application {
   id: string;
   jobId: string;
@@ -54,6 +56,38 @@ const MyApplications = () => {
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [loading, setLoading] = useState(true);
   const [applications, setApplications] = useState<Application[]>([]);
+  const [brokenCompanyLogoIds, setBrokenCompanyLogoIds] = useState<
+    Record<string, true>
+  >({});
+
+  const resolveCompanyImageUrl = (path?: string | null) => {
+    if (!path) return "";
+    const value = path.trim();
+    if (!value) return "";
+    if (/^https?:\/\//i.test(value) || value.startsWith("data:")) return value;
+    return `${API_BASE}${value.startsWith("/") ? value : `/${value}`}`;
+  };
+
+  const resolveFileUrl = (path?: string | null) => {
+    if (!path) return "";
+    const value = path.trim();
+    if (!value) return "";
+    if (/^https?:\/\//i.test(value)) return value;
+    const normalized = value.replace(/\\/g, "/");
+    const lower = normalized.toLowerCase();
+
+    const withLeadingUploads = lower.indexOf("/uploads/");
+    if (withLeadingUploads >= 0) {
+      return `${API_BASE}${normalized.slice(withLeadingUploads)}`;
+    }
+
+    const withoutLeadingUploads = lower.indexOf("uploads/");
+    if (withoutLeadingUploads >= 0) {
+      return `${API_BASE}/${normalized.slice(withoutLeadingUploads)}`;
+    }
+
+    return `${API_BASE}${normalized.startsWith("/") ? normalized : `/${normalized}`}`;
+  };
 
   // Load applications
   useEffect(() => {
@@ -256,6 +290,19 @@ const MyApplications = () => {
     }
   };
 
+  const handleViewApplication = (application: Application) => {
+    const cvUrl = resolveFileUrl(application.cvPath);
+    if (!cvUrl) {
+      toast({
+        title: "File not available",
+        description: "Application file could not be found.",
+        variant: "destructive",
+      });
+      return;
+    }
+    window.open(cvUrl, "_blank", "noopener,noreferrer");
+  };
+
   if (loading) {
     return (
       <MainLayout>
@@ -353,6 +400,12 @@ const MyApplications = () => {
                 const companyInitials = getCompanyInitials(
                   application.job.company.companyName,
                 );
+                const companyLogoId = String(
+                  application.job.company.companyId ?? application.id,
+                );
+                const companyLogoUrl = resolveCompanyImageUrl(
+                  application.job.company.profilePic,
+                );
 
                 return (
                   <div
@@ -361,11 +414,18 @@ const MyApplications = () => {
                   >
                     <div className="flex items-start gap-4">
                       <div className="w-14 h-14 bg-primary/10 rounded-xl flex items-center justify-center text-lg font-bold text-primary flex-shrink-0">
-                        {application.job.company.profilePic ? (
+                        {companyLogoUrl &&
+                        !brokenCompanyLogoIds[companyLogoId] ? (
                           <img
-                            src={application.job.company.profilePic}
+                            src={companyLogoUrl}
                             alt={application.job.company.companyName}
                             className="w-full h-full object-cover rounded-xl"
+                            onError={() =>
+                              setBrokenCompanyLogoIds((prev) => ({
+                                ...prev,
+                                [companyLogoId]: true,
+                              }))
+                            }
                           />
                         ) : (
                           companyInitials
@@ -445,11 +505,13 @@ const MyApplications = () => {
                               View Job
                             </Link>
                           </Button>
-                          <Button variant="outline" size="sm" asChild>
-                            <Link to={`/applications/${application.id}`}>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleViewApplication(application)}
+                          >
                               <FileText className="w-4 h-4 mr-1" />
                               View Application
-                            </Link>
                           </Button>
                           {application.status === "APPLIED" && (
                             <Button

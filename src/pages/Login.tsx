@@ -11,6 +11,7 @@ import {
   CheckCircle,
 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useToast } from "@/hooks/use-toast";
 
 // ✅ CHANGE THESE IF YOUR ROUTES ARE DIFFERENT
 const USER_DASHBOARD_PATH = "/user/dashboard";
@@ -19,9 +20,17 @@ const ADMIN_DASHBOARD_PATH = "/admin/dashboard";
 
 function getErrorMessage(err: any): string {
   const msg = err?.response?.data?.message;
+  const normalized = Array.isArray(msg) ? msg.join(", ") : msg;
+  if (typeof normalized === "string" && /suspend/i.test(normalized)) {
+    return "Your account is suspended. Please contact admin support.";
+  }
   if (Array.isArray(msg)) return msg.join(", ");
   if (typeof msg === "string") return msg;
   return "Invalid credentials. Please try again.";
+}
+
+function getErrorTitle(message: string): string {
+  return /suspend/i.test(message) ? "Account suspended" : "Login failed";
 }
 
 function isNotFoundOrUnauthorized(err: any) {
@@ -31,6 +40,7 @@ function isNotFoundOrUnauthorized(err: any) {
 
 export default function Login() {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -59,12 +69,22 @@ export default function Login() {
         if (res?.data?.user)
           localStorage.setItem("user", JSON.stringify(res.data.user));
 
+        toast({
+          title: "Login successful",
+          description: "Welcome back! Redirecting to your dashboard.",
+        });
         navigate(USER_DASHBOARD_PATH);
         return;
       } catch (err: any) {
         // If error is NOT 401/404, show it (validation, server error etc.)
         if (!isNotFoundOrUnauthorized(err)) {
-          setError(getErrorMessage(err));
+          const message = getErrorMessage(err);
+          setError(message);
+          toast({
+            title: getErrorTitle(message),
+            description: message,
+            variant: "destructive",
+          });
           setIsLoading(false);
           return;
         }
@@ -84,12 +104,22 @@ export default function Login() {
         if (res2?.data?.company)
           localStorage.setItem("company", JSON.stringify(res2.data.company));
 
+        toast({
+          title: "Login successful",
+          description: "Welcome back! Redirecting to your dashboard.",
+        });
         navigate(COMPANY_DASHBOARD_PATH);
         return;
       } catch (err: any) {
         // If error is NOT 401/404, show it
         if (!isNotFoundOrUnauthorized(err)) {
-          setError(getErrorMessage(err));
+          const message = getErrorMessage(err);
+          setError(message);
+          toast({
+            title: getErrorTitle(message),
+            description: message,
+            variant: "destructive",
+          });
           setIsLoading(false);
           return;
         }
@@ -108,9 +138,19 @@ export default function Login() {
       if (res3?.data?.admin)
         localStorage.setItem("admin", JSON.stringify(res3.data.admin));
 
+      toast({
+        title: "Login successful",
+        description: "Welcome back! Redirecting to your dashboard.",
+      });
       navigate(ADMIN_DASHBOARD_PATH);
     } catch (err: any) {
-      setError(getErrorMessage(err));
+      const message = getErrorMessage(err);
+      setError(message);
+      toast({
+        title: getErrorTitle(message),
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }

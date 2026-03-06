@@ -38,13 +38,25 @@ export default function EditInstitution() {
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
-  const { data: institution, isLoading } = useQuery({
+  const { data: institution, isLoading, isError } = useQuery({
     queryKey: ["institution", id],
     queryFn: async () => {
-      const res = await api.get(`/institutions/${id}`);
-      return res.data;
+      if (!id) throw new Error("Missing institution id");
+      const listRes = await api.get("/institutions/my-institutions");
+      const list = Array.isArray(listRes.data) ? listRes.data : [];
+      const found = list.find((inst: any) => String(inst.id) === String(id));
+      if (found) return found;
+
+      try {
+        const res = await api.get(`/institutions/${id}`);
+        return res.data;
+      } catch (error: any) {
+        if (error?.response?.status === 404) throw new Error("Not found");
+        throw error;
+      }
     },
     enabled: !!id,
+    retry: false,
   });
 
   useEffect(() => {
@@ -191,6 +203,35 @@ export default function EditInstitution() {
           <p className="text-center text-muted-foreground">
             Loading institution...
           </p>
+        </div>
+      </MainLayout>
+    );
+  }
+
+  if (isError || !institution) {
+    return (
+      <MainLayout>
+        <div className="container mx-auto px-4 py-8 max-w-3xl">
+          <Button
+            variant="ghost"
+            onClick={() => navigate("/user/institutions")}
+            className="gap-2 mb-4"
+          >
+            <ArrowLeft className="h-4 w-4" /> Back to My Institutions
+          </Button>
+          <Card>
+            <CardContent className="py-10 text-center space-y-3">
+              <p className="text-destructive font-medium">
+                Institution not found or not accessible.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                It may have been removed or is no longer available.
+              </p>
+              <Button onClick={() => navigate("/user/institutions")}>
+                Go to My Institutions
+              </Button>
+            </CardContent>
+          </Card>
         </div>
       </MainLayout>
     );

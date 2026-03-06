@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
 import {
   Building2,
   Mail,
@@ -117,9 +118,9 @@ function StatusBanner({
       <div className="mb-6 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3 flex items-center gap-2 text-yellow-700 dark:text-yellow-400 text-sm">
         <Clock className="h-4 w-4 shrink-0" />
         <span>
-          Your company is pending admin approval. Profile editing is disabled
-          until approved. Your jobs are also hidden from public until
-          re-approved.
+          Your company is pending admin approval. You can still update your
+          profile while you wait. Your jobs will be hidden from public until
+          your company is approved.
         </span>
       </div>
     );
@@ -163,6 +164,7 @@ function StatusBanner({
 }
 
 export default function CompanyProfile() {
+  const { toast } = useToast();
   const logoInputRef = useRef<HTMLInputElement | null>(null);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [profile, setProfile] = useState<CompanyProfileUI>({
@@ -188,9 +190,13 @@ export default function CompanyProfile() {
   const [error, setError] = useState<string | null>(null);
   const [benefitInput, setBenefitInput] = useState("");
 
-  // ✅ Only APPROVED or ACTIVE companies can edit
-  // ✅ After save, backend returns status: PENDING so this becomes false immediately
-  const canEdit = profile.status === "APPROVED" || profile.status === "ACTIVE";
+  // Allow APPROVED, ACTIVE, PENDING, and REJECTED companies to edit profile
+  // After save, backend may return status: PENDING based on backend workflow
+  const canEdit =
+    profile.status === "APPROVED" ||
+    profile.status === "ACTIVE" ||
+    profile.status === "PENDING" ||
+    profile.status === "REJECTED";
 
   useEffect(() => {
     loadProfile();
@@ -205,7 +211,15 @@ export default function CompanyProfile() {
       setProfile(ui);
       setEditedProfile(ui);
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Failed to load profile");
+      const message = e?.response?.data?.message || "Failed to load profile";
+      setError(message);
+      if (!silent) {
+        toast({
+          title: "Failed to load profile",
+          description: message,
+          variant: "destructive",
+        });
+      }
     } finally {
       if (!silent) setLoadingProfile(false);
     }
@@ -240,8 +254,18 @@ export default function CompanyProfile() {
       setProfile(ui);
       setEditedProfile(ui);
       setIsEditingProfile(false);
+      toast({
+        title: "Profile updated",
+        description: "Company profile updated successfully.",
+      });
     } catch (e: any) {
-      setError(e?.response?.data?.message || "Failed to save profile");
+      const message = e?.response?.data?.message || "Failed to save profile";
+      setError(message);
+      toast({
+        title: "Failed to update profile",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setSavingProfile(false);
     }
@@ -283,8 +307,19 @@ export default function CompanyProfile() {
         headers: { "Content-Type": "multipart/form-data" },
       });
       await loadProfile(true);
+      toast({
+        title: "Logo updated",
+        description: "Company logo uploaded successfully.",
+      });
     } catch (err: any) {
-      setError(err?.response?.data?.message || "Failed to upload company logo");
+      const message =
+        err?.response?.data?.message || "Failed to upload company logo";
+      setError(message);
+      toast({
+        title: "Failed to upload logo",
+        description: message,
+        variant: "destructive",
+      });
     } finally {
       setUploadingLogo(false);
       e.currentTarget.value = "";
@@ -666,3 +701,4 @@ export default function CompanyProfile() {
     </MainLayout>
   );
 }
+
