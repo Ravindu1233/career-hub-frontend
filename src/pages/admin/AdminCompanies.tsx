@@ -258,7 +258,6 @@ export default function AdminCompanies() {
                   <TableHead>Size</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Reason</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -274,9 +273,6 @@ export default function AdminCompanies() {
                     <TableCell>{c.location ?? "—"}</TableCell>
                     <TableCell>
                       <StatusBadge status={c.status} />
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[180px] truncate">
-                      {c.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Link to={`/admin/companies/${c.companyId}`}>

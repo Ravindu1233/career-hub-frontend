@@ -202,7 +202,6 @@ export default function AdminInstitutions() {
                   <TableHead>Location</TableHead>
                   <TableHead>Owner</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Reason</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -217,9 +216,6 @@ export default function AdminInstitutions() {
                     <TableCell>{i.user.email}</TableCell>
                     <TableCell>
                       <StatusBadge status={i.status} />
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">
-                      {i.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Link to={`/admin/institutions/${i.id}`}>

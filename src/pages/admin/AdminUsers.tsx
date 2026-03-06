@@ -172,7 +172,6 @@ export default function AdminUsers() {
                   <TableHead>Email</TableHead>
                   <TableHead>Mobile</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead>Reason</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -187,9 +186,6 @@ export default function AdminUsers() {
                     <TableCell>{u.mobile ?? "—"}</TableCell>
                     <TableCell>
                       <StatusBadge status={u.status} />
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground max-w-[160px] truncate">
-                      {u.rejectionReason ?? "—"}
                     </TableCell>
                     <TableCell className="text-right">
                       <Link to={`/admin/users/${u.userId}`}>
