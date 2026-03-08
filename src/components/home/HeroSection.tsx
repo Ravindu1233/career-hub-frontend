@@ -15,23 +15,34 @@ type InstitutionSummary = {
   courses?: unknown[] | null;
 };
 
+const HERO_STATS_CACHE_KEY = "hero_stats_cache_v1";
+const DEFAULT_COUNTERS: CounterStats = {
+  jobs: 0,
+  companies: 0,
+  institutions: 0,
+  courses: 0,
+};
+
+function parseCachedCounters(): CounterStats {
+  try {
+    const raw = localStorage.getItem(HERO_STATS_CACHE_KEY);
+    if (!raw) return DEFAULT_COUNTERS;
+    const parsed = JSON.parse(raw) as Partial<CounterStats>;
+    return {
+      jobs: Number.isFinite(parsed.jobs) ? Number(parsed.jobs) : 0,
+      companies: Number.isFinite(parsed.companies) ? Number(parsed.companies) : 0,
+      institutions: Number.isFinite(parsed.institutions) ? Number(parsed.institutions) : 0,
+      courses: Number.isFinite(parsed.courses) ? Number(parsed.courses) : 0,
+    };
+  } catch {
+    return DEFAULT_COUNTERS;
+  }
+}
+
 export function HeroSection() {
   const [searchQuery, setSearchQuery] = useState("");
   const [location, setLocation] = useState("");
-
-  // Animated counters rendered in the UI
-  const [counters, setCounters] = useState<CounterStats>({
-    jobs: 0,
-    companies: 0,
-    institutions: 0,
-    courses: 0,
-  });
-  const [targets, setTargets] = useState<CounterStats>({
-    jobs: 0,
-    companies: 0,
-    institutions: 0,
-    courses: 0,
-  });
+  const [counters, setCounters] = useState<CounterStats>(() => parseCachedCounters());
 
   useEffect(() => {
     let alive = true;
@@ -54,17 +65,20 @@ export function HeroSection() {
           return sum + count;
         }, 0);
 
-        if (alive) {
-          setTargets({
-            jobs: jobs.length,
-            companies: companies.length,
-            institutions: institutions.length,
-            courses: totalCourses,
-          });
-        }
+        if (!alive) return;
+
+        const nextCounters: CounterStats = {
+          jobs: jobs.length,
+          companies: companies.length,
+          institutions: institutions.length,
+          courses: totalCourses,
+        };
+
+        setCounters(nextCounters);
+        localStorage.setItem(HERO_STATS_CACHE_KEY, JSON.stringify(nextCounters));
       } catch {
         if (alive) {
-          setTargets({ jobs: 0, companies: 0, institutions: 0, courses: 0 });
+          setCounters(parseCachedCounters());
         }
       }
     };
@@ -74,28 +88,6 @@ export function HeroSection() {
       alive = false;
     };
   }, []);
-
-  useEffect(() => {
-    const duration = 2000;
-    const steps = 60;
-    const increment = duration / steps;
-
-    let current = 0;
-    const interval = setInterval(() => {
-      current++;
-      const progress = current / steps;
-      setCounters({
-        jobs: Math.floor(targets.jobs * progress),
-        companies: Math.floor(targets.companies * progress),
-        institutions: Math.floor(targets.institutions * progress),
-        courses: Math.floor(targets.courses * progress),
-      });
-
-      if (current >= steps) clearInterval(interval);
-    }, increment);
-
-    return () => clearInterval(interval);
-  }, [targets]);
 
   const formatNumber = (num: number) => {
     if (num >= 1000) return `${(num / 1000).toFixed(0)}K+`;

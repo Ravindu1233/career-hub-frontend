@@ -290,7 +290,7 @@ export default function AdminCompanies() {
                 {filtered.length === 0 && (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={6}
                       className="text-center text-muted-foreground py-8"
                     >
                       No companies found
