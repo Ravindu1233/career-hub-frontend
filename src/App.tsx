@@ -1,4 +1,4 @@
-import { Toaster } from "@/components/ui/toaster";
+﻿import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -16,10 +16,11 @@ import CareerGuidance from "./pages/CareerGuidance";
 import MyApplications from "./pages/MyApplications";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import NotFound from "./pages/NotFound";
 import Settings from "./pages/Settings";
 
-// ✅ Import separated user pages
+// âœ… Import separated user pages
 import UserDashboard from "./pages/user/UserDashboard";
 import UserProfile from "./pages/user/UserProfile";
 import UserApplications from "./pages/user/MyApplications";
@@ -33,7 +34,7 @@ import ViewCourse from "./pages/user/ViewCourse";
 import AddCourse from "./pages/user/AddCourse";
 import EditCourse from "./pages/user/EditCourse";
 
-// ✅ Import separated company pages
+// âœ… Import separated company pages
 import CompanyDashboard from "./pages/company/CompanyDashboard";
 import CompanyJobs from "./pages/company/CompanyJobs";
 import CompanyApplications from "./pages/company/CompanyApplications";
@@ -42,7 +43,7 @@ import CompanyProfile from "./pages/company/CompanyProfile";
 import ViewJob from "./pages/company/ViewJob";
 import EditJob from "./pages/company/EditJob";
 
-// ✅ Import admin pages
+// âœ… Import admin pages
 import AdminOverview from "./pages/admin/AdminOverview";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCompanies from "./pages/admin/AdminCompanies";
@@ -82,7 +83,7 @@ const App = () => (
           {/* Legacy route - keeping for backward compatibility */}
           <Route path="/my-applications" element={<MyApplications />} />
 
-          {/* ✅ Protected User Routes */}
+          {/* âœ… Protected User Routes */}
           <Route
             path="/user/dashboard"
             element={
@@ -189,7 +190,7 @@ const App = () => (
             }
           />
 
-          {/* ✅ Protected Company Routes */}
+          {/* âœ… Protected Company Routes */}
           <Route
             path="/company/dashboard"
             element={
@@ -247,7 +248,7 @@ const App = () => (
             }
           />
 
-          {/* ✅ Protected Admin Routes */}
+          {/* âœ… Protected Admin Routes */}
           <Route
             path="/admin/dashboard"
             element={
@@ -331,6 +332,7 @@ const App = () => (
 
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
 
           {/* Catch-all */}
           <Route path="*" element={<NotFound />} />
@@ -341,3 +343,5 @@ const App = () => (
 );
 
 export default App;
+
+
