@@ -1,4 +1,4 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { MainLayout } from "@/components/layout/MainLayout";
 import {
@@ -14,11 +14,23 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { api } from "@/lib/api";
-import { Bell, Lock, Save, UserCog } from "lucide-react";
-
-const NOTIFICATION_PREF_KEY = "settings:email-notifications";
+import { Bell, Lock, Moon, Save, ShieldCheck, UserCog } from "lucide-react";
 
 type AuthType = "USER" | "COMPANY";
+
+type AccountSettings = {
+  emailNotificationsEnabled: boolean;
+  pushNotificationsEnabled: boolean;
+  darkModeEnabled: boolean;
+  twoFactorEnabled: boolean;
+};
+
+const DEFAULT_SETTINGS: AccountSettings = {
+  emailNotificationsEnabled: true,
+  pushNotificationsEnabled: true,
+  darkModeEnabled: false,
+  twoFactorEnabled: false,
+};
 
 function getAuthType(): AuthType {
   const value = localStorage.getItem("authType");
@@ -73,6 +85,10 @@ function getErrorMessage(err: unknown, fallback: string) {
   return fallback;
 }
 
+function applyDarkMode(enabled: boolean) {
+  document.documentElement.classList.toggle("dark", enabled);
+}
+
 export default function Settings() {
   const { toast } = useToast();
   const authType = getAuthType();
@@ -80,29 +96,82 @@ export default function Settings() {
   const profilePath = useMemo(() => getProfilePath(authType), [authType]);
   const dashboardPath = useMemo(() => getDashboardPath(authType), [authType]);
 
-  const [emailNotifications, setEmailNotifications] = useState(
-    localStorage.getItem(NOTIFICATION_PREF_KEY) !== "false",
-  );
-  const [savingNotifications, setSavingNotifications] = useState(false);
+  const [settings, setSettings] = useState<AccountSettings>(DEFAULT_SETTINGS);
+  const [loadingSettings, setLoadingSettings] = useState(true);
+  const [savingSettings, setSavingSettings] = useState(false);
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPassword, setSavingPassword] = useState(false);
 
-  const saveNotificationPreference = async () => {
-    setSavingNotifications(true);
+  useEffect(() => {
+    const loadSettings = async () => {
+      setLoadingSettings(true);
+      try {
+        const endpoint =
+          authType === "COMPANY" ? "/companies/me/settings" : "/users/me/settings";
+        const res = await api.get(endpoint);
+        const loaded: AccountSettings = {
+          emailNotificationsEnabled:
+            res?.data?.emailNotificationsEnabled ??
+            DEFAULT_SETTINGS.emailNotificationsEnabled,
+          pushNotificationsEnabled:
+            res?.data?.pushNotificationsEnabled ??
+            DEFAULT_SETTINGS.pushNotificationsEnabled,
+          darkModeEnabled:
+            res?.data?.darkModeEnabled ?? DEFAULT_SETTINGS.darkModeEnabled,
+          twoFactorEnabled:
+            res?.data?.twoFactorEnabled ?? DEFAULT_SETTINGS.twoFactorEnabled,
+        };
+
+        setSettings(loaded);
+        applyDarkMode(loaded.darkModeEnabled);
+      } catch (err: unknown) {
+        toast({
+          title: "Failed to load settings",
+          description: getErrorMessage(err, "Could not load account settings."),
+          variant: "destructive",
+        });
+      } finally {
+        setLoadingSettings(false);
+      }
+    };
+
+    void loadSettings();
+  }, [authType, toast]);
+
+  const saveSettings = async () => {
+    setSavingSettings(true);
     try {
-      localStorage.setItem(
-        NOTIFICATION_PREF_KEY,
-        emailNotifications ? "true" : "false",
-      );
+      const endpoint =
+        authType === "COMPANY" ? "/companies/me/settings" : "/users/me/settings";
+
+      const res = await api.patch(endpoint, settings);
+      const saved: AccountSettings = {
+        emailNotificationsEnabled:
+          res?.data?.emailNotificationsEnabled ?? settings.emailNotificationsEnabled,
+        pushNotificationsEnabled:
+          res?.data?.pushNotificationsEnabled ?? settings.pushNotificationsEnabled,
+        darkModeEnabled: res?.data?.darkModeEnabled ?? settings.darkModeEnabled,
+        twoFactorEnabled: res?.data?.twoFactorEnabled ?? settings.twoFactorEnabled,
+      };
+
+      setSettings(saved);
+      applyDarkMode(saved.darkModeEnabled);
+
       toast({
         title: "Settings saved",
-        description: "Notification preference updated.",
+        description: "Your account settings were updated.",
+      });
+    } catch (err: unknown) {
+      toast({
+        title: "Failed to save settings",
+        description: getErrorMessage(err, "Could not update account settings."),
+        variant: "destructive",
       });
     } finally {
-      setSavingNotifications(false);
+      setSavingSettings(false);
     }
   };
 
@@ -203,18 +272,86 @@ export default function Settings() {
                     </p>
                   </div>
                   <Switch
-                    checked={emailNotifications}
-                    onCheckedChange={setEmailNotifications}
+                    checked={settings.emailNotificationsEnabled}
+                    onCheckedChange={(value) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        emailNotificationsEnabled: value,
+                      }))
+                    }
+                    disabled={loadingSettings}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div>
+                    <Label className="text-base font-medium">
+                      Push notifications
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Receive browser/app notification alerts
+                    </p>
+                  </div>
+                  <Switch
+                    checked={settings.pushNotificationsEnabled}
+                    onCheckedChange={(value) =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        pushNotificationsEnabled: value,
+                      }))
+                    }
+                    disabled={loadingSettings}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="flex items-start gap-3">
+                    <Moon className="h-5 w-5 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <Label className="text-base font-medium">Dark mode</Label>
+                      <p className="text-sm text-muted-foreground">
+                        Use dark theme for your account
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={settings.darkModeEnabled}
+                    onCheckedChange={(value) => {
+                      setSettings((prev) => ({ ...prev, darkModeEnabled: value }));
+                      applyDarkMode(value);
+                    }}
+                    disabled={loadingSettings}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="flex items-start gap-3">
+                    <ShieldCheck className="h-5 w-5 mt-0.5 text-muted-foreground" />
+                    <div>
+                      <Label className="text-base font-medium">
+                        Two-factor authentication
+                      </Label>
+                      <p className="text-sm text-muted-foreground">
+                        Require email OTP during login
+                      </p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={settings.twoFactorEnabled}
+                    onCheckedChange={(value) =>
+                      setSettings((prev) => ({ ...prev, twoFactorEnabled: value }))
+                    }
+                    disabled={loadingSettings}
                   />
                 </div>
 
                 <div className="flex justify-end">
                   <Button
-                    onClick={saveNotificationPreference}
-                    disabled={savingNotifications}
+                    onClick={saveSettings}
+                    disabled={savingSettings || loadingSettings}
                   >
                     <Save className="h-4 w-4 mr-2" />
-                    {savingNotifications ? "Saving..." : "Save preference"}
+                    {savingSettings ? "Saving..." : "Save settings"}
                   </Button>
                 </div>
               </CardContent>
